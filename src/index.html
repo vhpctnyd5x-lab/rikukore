@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>陸これ（仮） — 陸版艦これ</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23d4af37'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-size='34'%3E%E2%98%85%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Saira+Condensed:wght@500;700&family=Shippori+Mincho:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=0.5.2">
+</head>
+<body>
+<div class="scanlines"></div>
+
+<header id="topbar">
+  <div class="brand">
+    <div class="insignia">★</div>
+    <div class="brand-txt">
+      <h1>陸これ</h1>
+      <span class="sub">JGSDF MOE TACTICS</span>
+    </div>
+  </div>
+  <div id="cmdbox">
+    <div class="cmd-row">
+      <span id="cmd-name" title="クリックで改名">司令官</span>
+      <span id="cmd-lv">Lv.1</span>
+      <span id="clock">--:--:--</span>
+    </div>
+    <div class="cmd-exp"><i id="cmd-expbar"></i><small id="cmd-exptxt"></small></div>
+  </div>
+  <div id="resources">
+    <span class="res" title="燃料"><i>⛽</i><span><b id="r-fuel">0</b><small>燃料</small></span></span>
+    <span class="res" title="弾薬"><i>💥</i><span><b id="r-ammo">0</b><small>弾薬</small></span></span>
+    <span class="res" title="鋼材"><i>🔩</i><span><b id="r-steel">0</b><small>鋼材</small></span></span>
+    <span class="res" title="部品"><i>⚙️</i><span><b id="r-parts">0</b><small>部品</small></span></span>
+    <span class="res gold" title="資金"><i>💴</i><span><b id="r-gold">0</b><small>資金</small></span></span>
+  </div>
+</header>
+
+<div id="notibar"><span id="noti-icon">📻</span><span id="noti">ようこそ、陸これへ。司令、ご着任お疲れ様です。</span></div>
+
+<nav id="tabs">
+  <button data-tab="base" class="active"><i>🏯</i>司令室</button>
+  <button data-tab="squad"><i>🎖️</i>編成</button>
+  <button data-tab="sortie"><i>⚔️</i>出撃</button>
+  <button data-tab="arsenal"><i>🏭</i>工廠</button>
+  <button data-tab="mission"><i>📋</i>任務</button>
+  <button data-tab="dex"><i>📖</i>図鑑</button>
+  <button data-tab="shop"><i>🛒</i>商店</button>
+  <button data-tab="config"><i>⚙️</i>設定</button>
+</nav>
+
+<main>
+  <!-- 母港 -->
+  <section id="tab-base" class="tab active">
+    <div id="port">
+      <div id="port-bg"></div>
+      <img id="secretary-img" alt="秘書隊員">
+
+      <!-- 左：司令官パネル -->
+      <aside id="port-command">
+        <div class="pc-officer">
+          <span class="pc-title">司令官</span>
+          <span class="pc-lv">Lv.<b id="pc-lv">1</b></span>
+        </div>
+        <div class="pc-exp"><i id="pc-expbar"></i><small id="pc-exptxt"></small></div>
+        <ul id="pc-stats"></ul>
+        <div class="pc-actions">
+          <button class="pc-act" data-tab="squad"><i>🎖️</i><span>編成</span></button>
+          <button class="pc-act" data-tab="sortie"><i>⚔️</i><span>出撃</span></button>
+          <button class="pc-act" data-tab="arsenal"><i>🏭</i><span>工廠</span></button>
+          <button class="pc-act" data-tab="mission"><i>📋</i><span>任務</span></button>
+        </div>
+      </aside>
+
+      <!-- 秘書ネームプレート＆セリフ -->
+      <div id="port-overlay">
+        <div id="sec-nameplate">
+          <span id="sec-nation"></span>
+          <span id="sec-name"></span>
+          <span id="sec-base"></span>
+          <span id="sec-class"></span>
+        </div>
+        <div id="sec-speech"><span id="base-msg"></span></div>
+      </div>
+
+      <!-- 右下：ユーティリティ -->
+      <div id="port-utils">
+        <button class="pu" id="btn-changesec" title="秘書交代">🔄</button>
+        <button class="pu" data-tab="dex" title="図鑑">📖</button>
+        <button class="pu" data-tab="shop" title="商店">🛒</button>
+        <button class="pu" data-tab="config" title="設定">⚙️</button>
+      </div>
+    </div>
+    <!-- 秘書選択 -->
+    <div id="sec-select" class="hidden">
+      <div class="sec-select-card">
+        <div class="ss-head"><b>秘書隊員を選択</b><button onclick="document.getElementById('sec-select').classList.add('hidden')">✕</button></div>
+        <div id="sec-select-grid" class="mini-grid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 編成 -->
+  <section id="tab-squad" class="tab">
+    <h2>編成 <span class="h2sub">FORMATION</span></h2>
+    <p class="hint">小隊タブで部隊を切替。下のカードを枠へ<b>ドラッグ&ドロップ</b>で配置（最大6名・3小隊）。枠の✕で解除。</p>
+    <div id="squad-tabs" class="squad-tabs"></div>
+    <div id="squad-bar"></div>
+    <h3 class="subhead">保有隊員（ドラッグで編入）</h3>
+    <div id="roster" class="card-grid"></div>
+  </section>
+
+  <!-- 出撃 -->
+  <section id="tab-sortie" class="tab">
+    <h2>出撃 <span class="h2sub">SORTIE</span></h2>
+    <!-- 戦域選択 -->
+    <div id="sortie-area-view">
+      <p class="hint">戦域を選択して出撃します。各戦域はボスを撃破すると攻略完了。</p>
+      <div id="area-list"></div>
+    </div>
+    <!-- 戦域：出撃準備＋戦闘 -->
+    <div id="sortie-map-view" class="hidden">
+      <div class="map-top">
+        <button id="btn-area-back">← 戦域選択へ</button>
+        <span id="map-title"></span>
+      </div>
+      <div id="restrict-note"></div>
+
+      <!-- 出撃準備（編成） -->
+      <div id="prebattle">
+        <div id="fleet-panel" class="panel">
+          <h3 class="subhead">出撃部隊（カードをタップで編入／解除）</h3>
+          <div id="sortie-squad"></div>
+          <div id="sortie-roster" class="mini-grid"></div>
+          <div class="btnrow">
+            <button id="btn-startbattle">⚔️ 戦闘開始</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 戦闘シーン（アッシュアームズ式マス目・ターン制） -->
+      <div id="battlescene" class="hidden">
+        <div id="turn-bar">
+          <span id="turn-ind"></span>
+          <span id="wave-ind"></span>
+        </div>
+        <div id="battlefield">
+          <div id="grid-bg"></div>
+          <div id="field-units"></div>
+        </div>
+        <div id="battle-controls">
+          <div class="bc-group bc-attacks" id="bc-attacks"></div>
+          <div class="bc-group bc-skills" id="bc-skills"></div>
+          <div class="bc-group bc-misc">
+            <button id="bc-endturn">⏭ 敵ターンへ</button>
+            <button id="bc-quit" class="danger">撤退</button>
+          </div>
+        </div>
+        <div id="battle-log"></div>
+        <div id="battle-result" class="hidden"></div>
+        <div id="dmg-cutin" class="hidden"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 工廠 -->
+  <section id="tab-arsenal" class="tab">
+    <h2>工廠 <span class="h2sub">ARSENAL</span></h2>
+    <div id="arsenal-nav" class="subnav">
+      <button data-sub="build" class="active">配備建造</button>
+      <button data-sub="commission">工場依頼</button>
+      <button data-sub="remodel">改装</button>
+      <button data-sub="repair">修理</button>
+      <button data-sub="cast">鋳造</button>
+    </div>
+    <div id="sub-build" class="subtab active">
+      <p class="hint">資源を投入して新たな隊員を配備。投入量でレア度が変わります。</p>
+      <div class="panel" id="deploy-form">
+        <label>🔩 鋼材 <input type="range" id="d-steel" min="10" max="300" value="100"><b id="d-steel-v">100</b></label>
+        <label>⚙️ 部品 <input type="range" id="d-parts" min="10" max="300" value="100"><b id="d-parts-v">100</b></label>
+        <div class="btnrow"><button id="btn-deploy">▶ 配備開始</button></div>
+      </div>
+      <div id="deploy-result"></div>
+    </div>
+    <div id="sub-commission" class="subtab">
+      <p class="hint">各工房に製造を依頼。時間経過で完成し、確率で戦車または武装を獲得します。</p>
+      <div id="commission-list"></div>
+    </div>
+    <div id="sub-remodel" class="subtab">
+      <p class="hint">改修資材と資金で隊員を改装し、全ステータスを強化します。</p>
+      <div id="remodel-list" class="card-grid"></div>
+    </div>
+    <div id="sub-repair" class="subtab">
+      <p class="hint">損傷した隊員を修理します。高速修復材で即時回復も可能。</p>
+      <div id="repair-list" class="card-grid"></div>
+    </div>
+    <div id="sub-cast" class="subtab">
+      <p class="hint">資源を投入して装備を鋳造製作。投入量で高レア装備が出やすくなります。隊員の詳細画面で装備できます。</p>
+      <div class="panel" id="cast-form">
+        <label>🔩 鋼材 <input type="range" id="c-steel" min="20" max="400" value="150"><b id="c-steel-v">150</b></label>
+        <label>⚙️ 部品 <input type="range" id="c-parts" min="20" max="400" value="150"><b id="c-parts-v">150</b></label>
+        <div class="btnrow"><button id="btn-cast">⚒️ 鋳造開始</button></div>
+      </div>
+      <div id="cast-result"></div>
+      <h3 class="subhead">所持装備</h3>
+      <div id="equip-inv"></div>
+    </div>
+  </section>
+
+  <!-- 任務 -->
+  <section id="tab-mission" class="tab">
+    <h2>任務 <span class="h2sub">MISSIONS</span></h2>
+    <p class="hint">達成で資金・アイテムを獲得。任務は毎日リセットされます。</p>
+    <div id="mission-list"></div>
+  </section>
+
+  <!-- 図鑑 -->
+  <section id="tab-dex" class="tab">
+    <h2>図鑑 <span class="h2sub">ENCYCLOPEDIA</span></h2>
+    <p class="hint" id="dex-progress"></p>
+    <div id="dex-grid" class="card-grid"></div>
+  </section>
+
+  <!-- 商店 -->
+  <section id="tab-shop" class="tab">
+    <h2>商店 <span class="h2sub">ITEM SHOP</span></h2>
+    <p class="hint">資金でアイテムを購入。所持アイテムは下に表示。</p>
+    <div id="shop-list"></div>
+    <h3 class="subhead">所持アイテム</h3>
+    <div id="inventory"></div>
+    <h3 class="subhead">所持武装</h3>
+    <div id="weapon-inv"></div>
+  </section>
+
+  <!-- 設定 -->
+  <section id="tab-config" class="tab">
+    <h2>設定 <span class="h2sub">CONFIG</span></h2>
+    <div class="panel">
+      <h3 class="subhead">司令官名</h3>
+      <div class="btnrow"><input type="text" id="name-input" maxlength="12" placeholder="司令官名"><button id="btn-rename">変更</button></div>
+    </div>
+    <div class="panel">
+      <h3 class="subhead">戦績</h3>
+      <div id="records"></div>
+    </div>
+    <div class="panel">
+      <h3 class="subhead">UIテーマ（配色）</h3>
+      <div id="uitheme-list"></div>
+    </div>
+    <div class="panel">
+      <h3 class="subhead">音声（VOICEVOX）</h3>
+      <p class="hint" id="voice-status"></p>
+      <div class="btnrow">
+        <button id="btn-voice-toggle">音声: ON</button>
+        <button id="btn-voice-test">🔊 テスト再生</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h3 class="subhead">模様替え（駐屯地テーマ）</h3>
+      <div id="theme-list"></div>
+    </div>
+    <div class="panel">
+      <h3 class="subhead">データ</h3>
+      <div class="btnrow"><button id="btn-reset" class="danger">最初からやり直す</button></div>
+    </div>
+  </section>
+</main>
+
+<!-- 隊員詳細モーダル -->
+<div id="modal" class="hidden">
+  <div id="modal-card">
+    <button id="modal-close">✕</button>
+    <div id="modal-art"><img id="modal-img" alt=""><div id="modal-states"></div></div>
+    <div id="modal-info">
+      <div id="modal-nation"></div>
+      <h3 id="modal-name"></h3>
+      <div id="modal-base"></div>
+      <div id="modal-tags"></div>
+      <div id="modal-intro"></div>
+      <div id="modal-stats"></div>
+      <h4 class="me-head">装備</h4>
+      <div id="modal-equip"></div>
+      <button id="modal-toggle"></button>
+    </div>
+  </div>
+</div>
+
+<!-- 装備ピッカー -->
+<div id="equip-picker" class="hidden">
+  <div class="ep-card">
+    <div class="ss-head"><b>装備を選択</b><button onclick="document.getElementById('equip-picker').classList.add('hidden')">✕</button></div>
+    <div id="equip-picker-list"></div>
+  </div>
+</div>
+
+<!-- トースト通知 -->
+<div id="toast-wrap"></div>
+
+<footer>陸これ（仮） v0.5.2 — 参考: りっくじあーす</footer>
+
+<script src="../data/characters.js?v=0.5.2"></script>
+<script src="game.js?v=0.5.2"></script>
+</body>
+</html>

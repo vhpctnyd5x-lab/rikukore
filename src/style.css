@@ -1,0 +1,1199 @@
+/* ===== 陸これ v0.5.1 — タクティカル・デザイン ===== */
+:root{
+  --od:#3c4a2e; --od2:#566640; --od3:#788a55;
+  --sand:#d9cba8; --paper:#ece3cc;
+  --steel:#15170f; --steel2:#1f2317;
+  --accent:#c0392b; --accent2:#e85d4a;
+  --gold:#d4af37; --gold2:#f0d678;
+  --ink:#1a1c14;
+  --r2:#9aa6b0; --r3:#5fa8d3; --r4:#b07ad6; --r5:#e8b84a; /* レア度色 */
+}
+/* ===== UIテーマ（配色5種） ===== */
+body[data-ui="steel"]{
+  --od:#2b3d52; --od2:#3a5270; --od3:#5a7da8;
+  --sand:#cfe0f0; --paper:#e3ecf5; --steel:#0c1219; --steel2:#14202e;
+  --accent:#e07a2e; --accent2:#f5a45a; --gold:#7ec8f0; --gold2:#bfe6ff; --ink:#10161f;
+}
+body[data-ui="night"]{
+  --od:#241f2e; --od2:#3a2f48; --od3:#5a4a70;
+  --sand:#e0d4ee; --paper:#e8e0f0; --steel:#0a0810; --steel2:#160f1f;
+  --accent:#d6314f; --accent2:#ff6080; --gold:#c08ad6; --gold2:#e6b8ff; --ink:#120c18;
+}
+body[data-ui="sakura"]{
+  --od:#7a4a5a; --od2:#9a6878; --od3:#c08aa0;
+  --sand:#ffe4ee; --paper:#fff0f5; --steel:#221018; --steel2:#301622;
+  --accent:#e0567a; --accent2:#ff8aa8; --gold:#f0a8c8; --gold2:#ffd0e2; --ink:#1f0e16;
+}
+body[data-ui="desert"]{
+  --od:#7a6234; --od2:#9a7d44; --od3:#c0a060;
+  --sand:#f0e0b8; --paper:#f5ecd0; --steel:#1a140a; --steel2:#261d10;
+  --accent:#c0612b; --accent2:#e8884a; --gold:#e8c860; --gold2:#f5e090; --ink:#181208;
+}
+/* UIテーマ スウォッチ */
+.uitheme-btn{margin:4px;padding:8px 14px;border-radius:6px;clip-path:none;box-shadow:none;font-size:.85rem}
+.uitheme-btn.sel{outline:2px solid var(--gold2);outline-offset:1px}
+.ui-sw-green{background:linear-gradient(#566640,#3c4a2e)}
+.ui-sw-steel{background:linear-gradient(#3a5270,#2b3d52)}
+.ui-sw-night{background:linear-gradient(#3a2f48,#241f2e)}
+.ui-sw-sakura{background:linear-gradient(#9a6878,#7a4a5a)}
+.ui-sw-desert{background:linear-gradient(#9a7d44,#7a6234)}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:"Saira Condensed","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
+  color:#e8e6dc;min-height:100vh;letter-spacing:.3px;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(120,138,85,.10), transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(192,57,43,.08), transparent 45%),
+    repeating-linear-gradient(45deg, #14160e 0 18px, #171a10 18px 36px),
+    var(--steel);
+}
+/* 走査線オーバーレイ */
+.scanlines{position:fixed;inset:0;pointer-events:none;z-index:999;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.05) 0 1px, transparent 1px 3px);
+  mix-blend-mode:overlay;opacity:.5}
+
+/* ===== ヘッダー ===== */
+#topbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+  padding:12px 22px;position:relative;
+  background:linear-gradient(135deg, #2c361f, #44512f 60%, #2c361f);
+  border-bottom:1px solid rgba(0,0,0,.5);
+  box-shadow:0 4px 0 var(--gold), 0 5px 18px rgba(0,0,0,.6);}
+#topbar::after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:4px;
+  background:repeating-linear-gradient(90deg,var(--gold) 0 14px, var(--steel) 14px 22px);opacity:.85}
+.brand{display:flex;align-items:center;gap:14px}
+.insignia{width:46px;height:46px;flex:none;border-radius:50%;display:grid;place-items:center;
+  font-size:1.5rem;color:var(--ink);
+  background:radial-gradient(circle at 35% 30%, var(--gold2), var(--gold));
+  box-shadow:0 0 0 3px rgba(0,0,0,.4), 0 0 14px rgba(212,175,55,.55);
+  animation:pulse 3.5s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 3px rgba(0,0,0,.4), 0 0 22px rgba(212,175,55,.85)}}
+.brand h1{font-family:"Black Ops One","Shippori Mincho",serif;font-size:1.9rem;line-height:1;
+  letter-spacing:3px;color:var(--sand);text-shadow:2px 2px 0 #000, 0 0 12px rgba(212,175,55,.3)}
+.brand .sub{display:block;font-size:.68rem;letter-spacing:3px;color:var(--gold2);opacity:.85;margin-top:3px}
+
+/* 司令官ボックス */
+#cmdbox{display:flex;flex-direction:column;gap:4px;min-width:200px}
+.cmd-row{display:flex;align-items:center;gap:10px;font-family:"Saira Condensed"}
+#cmd-name{font-weight:700;color:var(--sand);cursor:pointer;border-bottom:1px dotted var(--gold2)}
+#cmd-name:hover{color:var(--gold2)}
+#cmd-lv{background:var(--accent);color:#fff;font-size:.72rem;padding:1px 8px;border-radius:10px;font-weight:700}
+#clock{margin-left:auto;font-family:"Black Ops One";font-size:.85rem;color:var(--gold2);letter-spacing:1px}
+.cmd-exp{height:10px;background:#0c0e08;border-radius:6px;position:relative;overflow:hidden;
+  border:1px solid rgba(0,0,0,.6);box-shadow:inset 0 1px 3px rgba(0,0,0,.8)}
+.cmd-exp i{display:block;height:100%;width:0;background:linear-gradient(90deg,#6b8f3a,var(--gold2));transition:.3s;
+  box-shadow:0 0 6px rgba(212,175,55,.5)}
+.cmd-exp small{position:absolute;inset:0;text-align:center;font-size:.6rem;line-height:10px;color:#cfc8b0;text-shadow:0 1px 2px #000}
+
+/* 通知バー */
+#notibar{display:flex;align-items:center;gap:10px;padding:6px 18px;background:#0c0e08;
+  border-bottom:1px solid rgba(212,175,55,.2);font-size:.82rem;color:var(--gold2);overflow:hidden;white-space:nowrap}
+#noti-icon{flex:none}
+#noti{overflow:hidden;text-overflow:ellipsis}
+
+/* トースト */
+#toast-wrap{position:fixed;top:14px;right:14px;z-index:700;display:flex;flex-direction:column;gap:8px;max-width:80vw}
+.toast{background:linear-gradient(120deg,#2c361f,#161a10);border:1px solid var(--gold);color:#fff;
+  padding:11px 16px;border-radius:8px;font-size:.88rem;box-shadow:0 8px 24px rgba(0,0,0,.6);
+  animation:tin .35s cubic-bezier(.2,1.2,.3,1);border-left:4px solid var(--accent2)}
+.toast.out{animation:tout .4s forwards}
+@keyframes tin{from{opacity:0;transform:translateX(40px)}to{opacity:1}}
+@keyframes tout{to{opacity:0;transform:translateX(40px)}}
+
+#resources{display:flex;gap:8px;flex-wrap:wrap}
+.res.gold b{color:#ffe07a}
+.res{display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.4);
+  padding:6px 12px;border-radius:4px;border:1px solid rgba(212,175,55,.25);
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+.res i{font-size:1.15rem;filter:drop-shadow(0 1px 1px #000)}
+.res span{display:flex;flex-direction:column;line-height:1}
+.res b{font-family:"Saira Condensed";color:var(--gold2);font-size:1.15rem}
+.res small{font-size:.58rem;letter-spacing:1px;opacity:.6}
+
+/* ===== タブ ===== */
+#tabs{display:flex;background:linear-gradient(#0e0f09,#181a10);
+  border-bottom:1px solid rgba(212,175,55,.2);position:sticky;top:0;z-index:50;
+  overflow-x:auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+#tabs button{flex:1;padding:13px 6px;background:none;border:none;color:#9a9f88;
+  font-family:"Saira Condensed";font-size:1.02rem;font-weight:700;letter-spacing:2px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  border-bottom:3px solid transparent;transition:.2s;position:relative}
+#tabs button i{font-size:1.05rem}
+#tabs button:hover{color:#fff;background:rgba(120,138,85,.12)}
+#tabs button.active{color:#fff;border-bottom-color:var(--accent);
+  background:linear-gradient(rgba(192,57,43,.22), transparent);
+  text-shadow:0 0 10px rgba(232,93,74,.6)}
+
+main{padding:22px 18px 40px;max-width:1040px;margin:0 auto}
+.tab{display:none}.tab.active{display:block;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+h2{font-family:"Shippori Mincho",serif;font-weight:800;font-size:1.55rem;margin-bottom:14px;
+  color:var(--sand);padding-left:14px;position:relative;display:flex;align-items:baseline;gap:12px}
+h2::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:6px;
+  background:linear-gradient(var(--accent),var(--accent2));box-shadow:0 0 10px rgba(192,57,43,.6)}
+.h2sub{font-family:"Black Ops One";font-size:.7rem;letter-spacing:4px;color:var(--od3);opacity:.7}
+.hint{font-size:.85rem;opacity:.7;margin-bottom:14px;padding-left:4px;border-left:2px solid var(--od3)}
+
+/* ===== パネル ===== */
+.panel{background:linear-gradient(160deg, rgba(40,46,28,.85), rgba(21,23,15,.9));
+  border:1px solid rgba(212,175,55,.18);border-radius:8px;padding:18px;margin-bottom:16px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07), inset 0 -1px 0 rgba(0,0,0,.35), 0 6px 16px rgba(0,0,0,.45);position:relative}
+.panel::before{content:"";position:absolute;top:8px;right:8px;width:10px;height:10px;
+  border-top:2px solid var(--gold);border-right:2px solid var(--gold);opacity:.5}
+.panel::after{content:"";position:absolute;left:8px;bottom:8px;width:10px;height:10px;
+  border-bottom:2px solid var(--gold);border-left:2px solid var(--gold);opacity:.35}
+.btnrow{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+
+button{cursor:pointer;font-family:"Saira Condensed";font-weight:700;letter-spacing:1px;
+  background:linear-gradient(var(--od2),var(--od));color:#fff;border:1px solid rgba(0,0,0,.4);
+  padding:11px 20px;font-size:.95rem;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.15), 0 3px 0 #222, 0 4px 8px rgba(0,0,0,.4);
+  transition:.12s;text-shadow:0 1px 1px #000}
+button:hover{background:linear-gradient(var(--od3),var(--od2));transform:translateY(-1px)}
+button:active{transform:translateY(2px);box-shadow:inset 0 1px 0 rgba(255,255,255,.1), 0 1px 0 #222}
+button.danger{background:linear-gradient(#9c3b30,#6f261d)}
+button.danger:hover{background:linear-gradient(#c0392b,#8a2c20)}
+
+/* ===== 母港（ホーム画面） ===== */
+#port{position:relative;border-radius:10px;overflow:hidden;min-height:560px;
+  border:1px solid rgba(212,175,55,.25);box-shadow:0 8px 30px rgba(0,0,0,.6)}
+#port-bg{position:absolute;inset:0;z-index:0;
+  background:
+    radial-gradient(circle at 50% 120%, rgba(120,138,85,.35), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(212,175,55,.12), transparent 45%),
+    repeating-linear-gradient(115deg, rgba(255,255,255,.03) 0 2px, transparent 2px 9px),
+    linear-gradient(165deg, #2a3320, #161a10 70%, #0d0f08);}
+/* 模様替えテーマ：写真 */
+#port-bg.theme-photo::before{content:"";position:absolute;inset:0;
+  background-image:url('../assets/ui/hq.png');background-size:cover;background-position:center;
+  filter:brightness(.5) saturate(.85) blur(1.5px);}
+#port-bg.theme-night::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,#0a1530,#05080f);opacity:.9}
+#port-bg.theme-od::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(160deg,#3e4a2c,#1c2113)}
+#port-bg.theme-snow::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(160deg,#5a6878,#aab4c2 80%,#cfd8e2)}
+#port-bg.theme-desert::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(160deg,#b08a4f,#e0c188 80%,#d9b878)}
+#port-bg::after{content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 42% 70% at 50% 78%, rgba(255,240,200,.18), transparent 70%),
+    linear-gradient(180deg, rgba(8,10,6,.35), rgba(8,10,6,.6));}
+#secretary-img{position:absolute;left:50%;bottom:0;transform:translateX(-52%);
+  height:96%;max-height:560px;z-index:2;cursor:pointer;
+  filter:brightness(1.12) contrast(1.05) drop-shadow(0 6px 22px rgba(0,0,0,.85)) drop-shadow(0 0 2px rgba(255,255,255,.35));
+  animation:secIn .6s cubic-bezier(.2,1,.3,1);object-fit:contain;transform-origin:50% 100%}
+#secretary-img.tapped{animation:guwan .5s cubic-bezier(.3,1.4,.5,1)}
+/* 破損モーション：中破=小刻みに震える、大破=激しく＋赤明滅 */
+#secretary-img.dmg1{animation:dmgsway 3s ease-in-out infinite}
+#secretary-img.dmg2{animation:dmgshudder 1.6s ease-in-out infinite}
+#secretary-img.dmg3{animation:dmgcritical .5s ease-in-out infinite}
+#modal-img.dmg2{animation:mshudder 1.6s ease-in-out infinite}
+#modal-img.dmg3{animation:mcritical .5s ease-in-out infinite}
+@keyframes mshudder{0%,100%{transform:translateX(-50%)}30%{transform:translateX(-51.5%) rotate(-1deg)}70%{transform:translateX(-48.5%) rotate(1deg)}}
+@keyframes mcritical{0%,100%{transform:translateX(-50%) rotate(0)}25%{transform:translateX(-52%) rotate(-1.6deg)}50%{transform:translateX(-48%) rotate(1.6deg)}75%{transform:translateX(-51.5%) rotate(-.8deg);filter:drop-shadow(0 0 16px rgba(232,40,40,.8))}}
+@keyframes dmgsway{0%,100%{transform:translateX(-52%) rotate(0)}50%{transform:translateX(-52%) rotate(.6deg)}}
+@keyframes dmgshudder{0%,100%{transform:translateX(-52%)}
+  20%{transform:translateX(-53.2%) rotate(-1deg)}40%{transform:translateX(-50.8%) rotate(1deg)}
+  60%{transform:translateX(-52.6%)}80%{transform:translateX(-51.4%)}}
+@keyframes dmgcritical{0%,100%{transform:translateX(-52%) rotate(0);filter:drop-shadow(0 6px 22px rgba(0,0,0,.7))}
+  25%{transform:translateX(-53.5%) rotate(-1.6deg);filter:drop-shadow(0 6px 22px rgba(0,0,0,.7)) drop-shadow(0 0 14px rgba(232,40,40,.7))}
+  50%{transform:translateX(-50.5%) rotate(1.6deg)}
+  75%{transform:translateX(-53%) rotate(-.8deg);filter:drop-shadow(0 6px 22px rgba(0,0,0,.7)) drop-shadow(0 0 18px rgba(232,40,40,.85))}}
+@keyframes guwan{0%{transform:translateX(-52%) scale(1,1)}
+  25%{transform:translateX(-52%) scale(1.06,.92)}
+  50%{transform:translateX(-52%) scale(.96,1.05) rotate(-1.5deg)}
+  72%{transform:translateX(-52%) scale(1.02,.98) rotate(1deg)}
+  100%{transform:translateX(-52%) scale(1,1)}}
+@keyframes secIn{from{opacity:0;transform:translateX(-52%) translateY(16px) scale(.98)}to{opacity:1}}
+#port-overlay{position:absolute;left:0;bottom:0;z-index:2;padding:18px 20px;max-width:62%}
+#sec-nameplate{display:flex;flex-direction:column;gap:2px;margin-bottom:10px;
+  background:linear-gradient(100deg, rgba(13,15,8,.92), rgba(13,15,8,.55) 80%, transparent);
+  padding:10px 16px;border-left:5px solid var(--gold);border-radius:0 8px 8px 0;
+  backdrop-filter:blur(2px)}
+#sec-nation{font-size:1.2rem}
+#sec-name{font-family:"Shippori Mincho",serif;font-weight:800;font-size:1.9rem;color:var(--sand);
+  text-shadow:2px 2px 0 #000;line-height:1.1}
+#sec-base{font-size:.82rem;color:var(--gold2);letter-spacing:1px}
+#sec-class{font-size:.74rem;color:#aeb49a;letter-spacing:1px}
+#sec-speech{background:linear-gradient(100deg, rgba(13,15,8,.9), rgba(13,15,8,.4));
+  padding:12px 16px;border-radius:8px;font-size:.95rem;line-height:1.6;color:#e8e6dc;
+  border:1px solid rgba(212,175,55,.2);position:relative;backdrop-filter:blur(2px)}
+#sec-speech::before{content:"💬";position:absolute;top:-12px;left:14px;font-size:1.1rem}
+#port-side{position:absolute;right:0;top:0;bottom:0;z-index:3;display:flex;align-items:center;padding-right:16px}
+.port-menu{display:flex;flex-direction:column;gap:10px}
+.port-menu .pm{display:flex;align-items:center;gap:10px;justify-content:flex-start;
+  min-width:130px;padding:12px 16px;font-size:1.05rem;
+  background:linear-gradient(100deg, rgba(40,46,28,.92), rgba(21,23,15,.85));
+  border:1px solid rgba(212,175,55,.3)}
+.port-menu .pm i{font-size:1.2rem}
+.port-menu .pm:hover{background:linear-gradient(100deg,var(--accent),#7a2419);transform:translateX(-4px)}
+#port-foot{position:absolute;left:0;right:0;top:0;z-index:3;display:flex;
+  justify-content:space-between;align-items:flex-start;gap:10px;padding:14px 18px;
+  background:linear-gradient(180deg, rgba(8,10,6,.85), transparent)}
+#port-foot #base-stats{margin:0;font-size:.85rem;line-height:1.7}
+#port-foot .btnrow{margin:0}
+#port-foot button{padding:8px 14px;font-size:.85rem}
+@media(max-width:560px){
+  #port{min-height:480px}#port-overlay{max-width:100%}
+  #sec-name{font-size:1.4rem}.port-menu .pm{min-width:auto;padding:10px}
+  .port-menu .pm span{display:none}
+}
+
+/* ===== カード ===== */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:14px;margin-top:14px}
+.card{--rc:var(--r2);background:linear-gradient(165deg,#f3ecd6,#dccfb0);color:#222;
+  border-radius:8px;padding:10px;cursor:pointer;transition:.18s;position:relative;overflow:hidden;
+  border:1px solid #bbb;border-top:3px solid var(--rc);
+  box-shadow:0 4px 10px rgba(0,0,0,.45)}
+.card.r3{--rc:var(--r3)}.card.r4{--rc:var(--r4)}.card.r5{--rc:var(--r5)}
+/* 耐久バー & 要修理バッジ */
+.card .hpbar{position:relative;height:5px;margin-top:6px;border-radius:3px;overflow:hidden;
+  background:rgba(0,0,0,.25);box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.card .hpbar-fill{display:block;height:100%;border-radius:3px;transition:width .3s}
+.card .hpbar-fill.hp-ok{background:linear-gradient(90deg,#4e9b3a,#7bc94e)}
+.card .hpbar-fill.hp-warn{background:linear-gradient(90deg,#c9942e,#f0d05a)}
+.card .hpbar-fill.hp-bad{background:linear-gradient(90deg,#a3281f,#e0563f)}
+.card .repair-badge{position:absolute;top:6px;right:6px;z-index:2;
+  font-size:.62rem;font-weight:700;letter-spacing:1px;color:#fff;
+  padding:2px 6px;border-radius:5px;background:linear-gradient(var(--accent),var(--accent2));
+  box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.card::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.35) 50%,transparent 60%);
+  transform:translateX(-120%);transition:.5s}
+.card:hover{transform:translateY(-5px) scale(1.02);border-color:var(--rc);
+  box-shadow:0 10px 22px rgba(0,0,0,.55), 0 0 0 1px var(--rc)}
+.card:hover::after{transform:translateX(120%)}
+.card.r5{box-shadow:0 4px 10px rgba(0,0,0,.45), 0 0 16px rgba(232,184,74,.35)}
+.card.selected{outline:3px solid var(--accent);outline-offset:-3px}
+.card.selected::before{content:"編入中";position:absolute;top:0;left:0;
+  background:var(--accent);color:#fff;font-size:.62rem;font-weight:700;padding:2px 8px;
+  letter-spacing:1px;z-index:3;clip-path:polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+.card .portrait{width:100%;height:140px;border-radius:6px;margin-bottom:8px;
+  display:flex;align-items:center;justify-content:center;font-size:2.6rem;color:#fff;
+  background:
+    radial-gradient(ellipse 75% 60% at 50% 38%, rgba(255,248,222,.20), transparent 68%),
+    repeating-linear-gradient(60deg, rgba(0,0,0,.10) 0 6px, transparent 6px 12px),
+    linear-gradient(150deg,var(--od3),var(--od));
+  box-shadow:inset 0 0 26px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.10);position:relative;overflow:hidden}
+.card .portrait .phicon{position:absolute;opacity:.35}
+.card .portrait::before{content:"";position:absolute;left:50%;bottom:6%;transform:translateX(-50%);
+  width:88%;height:80%;z-index:1;border-radius:50%;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 45%, rgba(255,248,222,.45), rgba(255,240,200,.12) 55%, transparent 72%)}
+.card .portrait .chibi{position:relative;z-index:2;width:100%;height:100%;
+  object-fit:contain;object-position:center bottom;
+  filter:brightness(1.08) contrast(1.05) drop-shadow(0 2px 4px rgba(0,0,0,.5)) drop-shadow(0 0 2px rgba(255,255,255,.3))}
+.card .portrait::after{content:"";position:absolute;inset:0;border-radius:6px;z-index:3;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.15)}
+.card .cname{font-family:"Shippori Mincho",serif;font-weight:800;font-size:1.08rem;color:#1c1d12;
+  text-shadow:0 1px 0 rgba(255,255,255,.45)}
+.card .cbase{font-size:.7rem;color:#4a4a3a;margin-bottom:2px;font-weight:600}
+.card .meta{display:flex;justify-content:space-between;align-items:center;margin:4px 0}
+.card .cclass{font-size:.62rem;font-weight:700;background:var(--ink);color:var(--sand);
+  padding:2px 7px;border-radius:3px;letter-spacing:1px}
+.card .stars{color:#caa42a;font-size:.78rem;letter-spacing:-1px;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+.card .stat{font-size:.74rem;color:#2e2e22;margin-top:5px;line-height:1.55;
+  border-top:1px dashed #b3a888;padding-top:5px;font-weight:600}
+.card .stat b{color:#8a2417;font-size:.96rem;font-weight:800;
+  text-shadow:0 1px 0 rgba(255,255,255,.5)}
+.card .lvl{position:absolute;top:6px;right:6px;z-index:3;
+  background:linear-gradient(var(--ink),#000);color:var(--gold2);
+  font-family:"Black Ops One";font-size:.6rem;padding:3px 7px;border-radius:10px;
+  border:1px solid var(--gold);letter-spacing:1px}
+
+/* ===== 小隊バー ===== */
+#squad-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.slot{min-height:160px;border-radius:6px;padding:10px;text-align:center;font-size:.82rem;
+  display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px;transition:.2s;
+  border:2px dashed #4a513a;color:#7d8468;background:rgba(0,0,0,.25);position:relative;overflow:hidden}
+.slot.filled{border-style:solid;border-color:var(--gold);color:#fff;cursor:pointer;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 36%, rgba(255,244,210,.30), transparent 70%),
+    radial-gradient(ellipse at 50% 100%, rgba(212,175,55,.28), transparent 62%),
+    linear-gradient(160deg, rgba(46,54,32,.72), rgba(8,10,6,.62));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 0 14px rgba(212,175,55,.25), 0 4px 10px rgba(0,0,0,.45)}
+.slot.filled::before{content:"";position:absolute;left:0;right:0;bottom:0;height:48%;z-index:1;
+  background:linear-gradient(0deg, rgba(6,8,4,.88), rgba(6,8,4,.4) 60%, transparent);pointer-events:none}
+.slot.filled .schibi{position:absolute;top:4px;left:50%;transform:translateX(-50%);
+  height:112px;object-fit:contain;z-index:2;
+  filter:brightness(1.10) contrast(1.06) drop-shadow(0 3px 5px rgba(0,0,0,.6)) drop-shadow(0 0 2px rgba(255,255,255,.25))}
+.slot.filled b{font-family:"Shippori Mincho";font-size:1.02rem;color:#fff6df;z-index:3;position:relative;
+  text-shadow:0 1px 0 #000, 0 2px 4px #000, 0 0 6px rgba(0,0,0,.9)}
+.slot.filled span{z-index:3;position:relative;font-size:.76rem;color:#ece6d4;
+  text-shadow:0 1px 2px #000, 0 0 4px #000}
+.slot.filled span b{color:var(--gold2);font-size:.84rem;
+  text-shadow:0 1px 0 #000, 0 0 6px rgba(212,175,55,.5)}
+
+/* ===== 演習場マップ ===== */
+#map-list .map{display:flex;justify-content:space-between;align-items:center;gap:14px;
+  background:linear-gradient(120deg, rgba(40,46,28,.9), rgba(21,23,15,.92));
+  border:1px solid rgba(212,175,55,.18);border-left:5px solid var(--accent);
+  border-radius:8px;padding:14px 16px;margin-bottom:12px;transition:.18s}
+#map-list .map:hover{border-left-color:var(--gold);transform:translateX(4px)}
+.map .mname{font-family:"Shippori Mincho",serif;font-weight:800;font-size:1.1rem;color:var(--sand)}
+.map .mdesc{font-size:.76rem;color:#9aa088;margin-top:3px}
+
+/* ===== 戦闘ログ ===== */
+#battle-log{margin-top:16px;background:rgba(8,10,6,.92);border:1px solid #333;border-radius:8px;
+  padding:14px;font-family:"Saira Condensed";font-size:.86rem;line-height:1.8;
+  max-height:360px;overflow-y:auto;box-shadow:inset 0 0 30px rgba(0,0,0,.6)}
+#battle-log::-webkit-scrollbar{width:8px}#battle-log::-webkit-scrollbar-thumb{background:var(--od);border-radius:4px}
+.log-head{color:var(--gold2);font-weight:700;font-size:1rem;letter-spacing:1px;
+  border-bottom:1px solid rgba(212,175,55,.3);padding-bottom:4px;margin-bottom:4px}
+.log-win{color:#8ee08e;font-weight:700;text-shadow:0 0 8px rgba(126,201,126,.4)}
+.log-lose{color:#e88080;font-weight:700}
+.log-hit{color:#cdd0bf}
+
+/* ===== 配備フォーム ===== */
+#deploy-form label{display:flex;align-items:center;gap:10px;margin:12px 0;font-size:1rem;flex-wrap:wrap}
+#deploy-form input[type=range]{flex:1;min-width:160px;accent-color:var(--accent);height:6px}
+#deploy-form b{font-family:"Black Ops One";color:var(--gold2);min-width:46px;text-align:right}
+#deploy-result{margin-top:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+#deploy-result .card{max-width:185px;animation:deployIn .6s cubic-bezier(.2,1.3,.4,1)}
+@keyframes deployIn{0%{opacity:0;transform:scale(.4) rotate(-8deg)}100%{opacity:1;transform:none}}
+
+#base-stats{margin:14px 0;font-size:.95rem;line-height:2;color:#d6d3c4}
+#base-stats b{color:var(--gold2);font-family:"Black Ops One";font-size:1.05rem}
+
+/* ===== 隊員詳細モーダル ===== */
+#modal{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;
+  background:rgba(5,6,3,.78);backdrop-filter:blur(4px);padding:16px;animation:fade .2s}
+#modal.hidden{display:none}
+#modal-card{position:relative;display:flex;gap:0;max-width:760px;width:100%;max-height:92vh;
+  background:linear-gradient(160deg,#262e1b,#12150d);border:1px solid var(--gold);border-radius:12px;
+  overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+#modal-close{position:absolute;top:10px;right:10px;z-index:5;padding:6px 12px;font-size:1rem;
+  background:rgba(0,0,0,.5);border:1px solid rgba(212,175,55,.4)}
+#modal-art{flex:0 0 44%;position:relative;
+  background:
+    radial-gradient(ellipse at 50% 65%, rgba(212,175,55,.22), transparent 60%),
+    repeating-linear-gradient(60deg, rgba(255,255,255,.03) 0 8px, transparent 8px 16px),
+    linear-gradient(160deg,#3a4528,#161a0f);}
+#modal-img{position:absolute;left:50%;bottom:0;transform:translateX(-50%);height:100%;
+  object-fit:contain;filter:drop-shadow(0 6px 18px rgba(0,0,0,.6));animation:secIn .4s ease}
+#modal-info{flex:1;padding:22px;overflow-y:auto}
+#modal-nation{font-size:1.5rem}
+#modal-name{font-family:"Shippori Mincho",serif;font-weight:800;font-size:2rem;color:var(--sand);
+  text-shadow:2px 2px 0 #000;line-height:1.1}
+#modal-base{font-size:.85rem;color:var(--gold2);letter-spacing:1px;margin-bottom:8px}
+#modal-tags{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.mtag{font-size:.72rem;font-weight:700;background:var(--ink);color:var(--sand);
+  padding:3px 9px;border-radius:4px;letter-spacing:1px;border:1px solid rgba(212,175,55,.3)}
+.mtag.star{color:#e8b84a}
+#modal-intro{font-size:.9rem;line-height:1.6;color:#d8d6c8;margin-bottom:16px;
+  border-left:3px solid var(--accent);padding-left:10px}
+#modal-stats{display:flex;flex-direction:column;gap:7px;margin-bottom:18px}
+.srow{display:flex;align-items:center;gap:10px;font-size:.82rem}
+.srow .slbl{flex:0 0 42px;color:#aeb49a;letter-spacing:1px}
+.srow .sbar{flex:1;height:9px;background:rgba(0,0,0,.5);border-radius:5px;overflow:hidden;
+  border:1px solid rgba(255,255,255,.08)}
+.srow .sbar i{display:block;height:100%;border-radius:5px;
+  background:linear-gradient(90deg,var(--od3),var(--gold2))}
+.srow .sval{flex:0 0 34px;text-align:right;font-family:"Saira Condensed";color:var(--gold2);font-weight:700}
+.srow.total{margin-top:6px;border-top:1px solid rgba(212,175,55,.25);padding-top:8px}
+.srow.total .sval.big{flex:1;font-size:1.4rem;color:var(--accent2)}
+#modal-toggle{width:100%;padding:13px;font-size:1.05rem}
+@media(max-width:560px){
+  #modal-card{flex-direction:column;max-height:94vh}
+  #modal-art{flex:0 0 240px}#modal-img{height:230px}
+}
+
+/* ===== 出撃：戦域選択 ===== */
+.hidden{display:none!important}
+#area-list{display:flex;flex-direction:column;gap:12px}
+.area-card{display:flex;justify-content:space-between;align-items:center;gap:14px;
+  background:linear-gradient(120deg,rgba(40,46,28,.92),rgba(21,23,15,.94));
+  border:1px solid rgba(212,175,55,.2);border-left:5px solid var(--accent);border-radius:10px;padding:16px 18px}
+.area-card.cleared{border-left-color:var(--gold)}
+.ac-name{font-family:"Shippori Mincho",serif;font-weight:800;font-size:1.12rem;color:var(--sand)}
+.ac-clear{font-size:.66rem;background:var(--gold);color:var(--ink);padding:2px 8px;border-radius:10px;margin-left:8px;font-weight:700}
+.ac-desc{font-size:.8rem;color:#9aa088;margin-top:4px}
+.ac-restrict{font-size:.74rem;color:#e8b84a;margin-top:5px}
+
+/* ===== 出撃：マップ ===== */
+.map-top{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+#map-title{font-family:"Shippori Mincho",serif;font-weight:800;color:var(--sand);font-size:1.05rem}
+#restrict-note{background:rgba(232,184,74,.12);border:1px solid rgba(232,184,74,.4);color:#e8b84a;
+  padding:8px 12px;border-radius:6px;font-size:.82rem;margin-bottom:10px}
+#node-map{position:relative;width:100%;aspect-ratio:16/7;min-height:240px;border-radius:10px;overflow:hidden;
+  border:1px solid rgba(212,175,55,.25);box-shadow:inset 0 0 50px rgba(0,0,0,.5);margin-bottom:14px;
+  background:linear-gradient(160deg,#2a3320,#161a10)}
+#node-map.theme-snow{background:linear-gradient(160deg,#6a7886,#aeb8c4 80%,#cfd8e2)}
+#node-map.theme-od{background:linear-gradient(160deg,#3e4a2c,#222a16)}
+#node-map.theme-desert{background:linear-gradient(160deg,#b08a4f,#d9b878)}
+#node-map .edges{position:absolute;inset:0;width:100%;height:100%}
+.edges .edge{stroke:rgba(255,255,255,.25);stroke-width:.5;stroke-dasharray:2 2}
+.edges .edge-active{stroke:var(--gold2);stroke-width:.8;stroke-dasharray:2 1.5;animation:dash 1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-7}}
+.node{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;
+  gap:2px;z-index:2;text-align:center}
+.node .nd-icon{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;font-size:1.1rem;
+  background:rgba(0,0,0,.55);border:2px solid rgba(255,255,255,.35);box-shadow:0 2px 6px rgba(0,0,0,.5)}
+.node .nd-label{font-size:.62rem;color:#fff;background:rgba(0,0,0,.55);padding:1px 5px;border-radius:4px;
+  line-height:1.2;white-space:nowrap}
+.node.boss .nd-icon{border-color:var(--accent2);background:rgba(120,20,15,.7);font-size:1.3rem;width:44px;height:44px}
+.node.resource .nd-icon{border-color:#7ec97e}
+.node.here .nd-icon{border-color:var(--gold);box-shadow:0 0 0 4px rgba(212,175,55,.35),0 0 14px var(--gold);
+  animation:hpulse 1.4s ease-in-out infinite}
+@keyframes hpulse{50%{box-shadow:0 0 0 7px rgba(212,175,55,.15),0 0 18px var(--gold)}}
+.node.next .nd-icon{border-color:var(--accent2);animation:npulse 1s ease-in-out infinite}
+@keyframes npulse{50%{transform:scale(1.12)}}
+
+/* 出撃中の編成エディタ */
+#sortie-squad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+#sortie-squad .slot{min-height:150px}
+.hpbar{display:block;width:80%;height:6px;margin:4px auto 0;background:rgba(0,0,0,.5);border-radius:4px;overflow:hidden;z-index:2}
+.hpbar i{display:block;height:100%;background:linear-gradient(90deg,#7ec97e,#bfe6a0)}
+.hpbar.dmg i{background:linear-gradient(90deg,#c0392b,#e8765d)}
+.hptxt{font-size:.66rem;color:#cdd0bf;z-index:2}
+.mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;max-height:230px;overflow-y:auto;padding:4px}
+.mini-card{--rc:var(--r2);background:linear-gradient(165deg,#f3ecd6,#dccfb0);border-radius:6px;padding:5px;
+  border-top:3px solid var(--rc);cursor:pointer;text-align:center;transition:.15s;color:#222}
+.mini-card.r3{--rc:var(--r3)}.mini-card.r4{--rc:var(--r4)}.mini-card.r5{--rc:var(--r5)}
+.mini-card:hover{transform:translateY(-2px)}
+.mini-card.selected{outline:2px solid var(--accent);outline-offset:-2px}
+.mini-card img{width:100%;height:54px;object-fit:contain;object-position:bottom}
+.mc-name{display:block;font-size:.68rem;font-weight:700;color:var(--ink);line-height:1.1}
+.mc-pow{display:block;font-size:.6rem;color:#555}
+.branch-btn{padding:5px 12px;font-size:.8rem;margin:0 4px}
+
+/* ===== アッシュアームズ式 戦闘 ===== */
+#base-hud{display:flex;gap:10px;margin-bottom:8px}
+.base-hp{flex:1;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.4);padding:6px 12px;
+  border-radius:6px;font-size:.82rem;border:1px solid rgba(212,175,55,.2)}
+.base-hp.ally{border-left:4px solid #5fa8d3}.base-hp.enemy{border-left:4px solid var(--accent)}
+.bh-bar{flex:1;height:10px;background:#0c0e08;border-radius:5px;overflow:hidden}
+.bh-bar i{display:block;height:100%;transition:.3s}
+.base-hp.ally .bh-bar i{background:linear-gradient(90deg,#3a72a0,#7ec8f0)}
+.base-hp.enemy .bh-bar i{background:linear-gradient(90deg,#7a2419,#e8765d)}
+.base-hp b{font-family:"Saira Condensed";color:var(--gold2);min-width:42px;text-align:right}
+
+#battlefield{position:relative;width:100%;height:380px;border-radius:10px;overflow:hidden;
+  border:1px solid rgba(212,175,55,.25);margin-bottom:10px;
+  background:
+    radial-gradient(ellipse at 15% 50%, rgba(95,168,211,.10), transparent 40%),
+    radial-gradient(ellipse at 85% 50%, rgba(192,57,43,.12), transparent 40%),
+    linear-gradient(180deg, #7a8a6a, #57673a);
+  box-shadow:inset 0 0 50px rgba(0,0,0,.45)}
+#grid-bg{position:absolute;inset:0;z-index:1}
+/* 六角マス */
+#grid-bg .hex{position:absolute;cursor:pointer;transition:filter .12s;
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  background:var(--tc,#5d7a39);
+  box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.35), inset 0 0 14px rgba(0,0,0,.25);
+  display:flex;align-items:flex-start;justify-content:flex-end}
+#grid-bg .hex .hex-ic{font-size:.7rem;opacity:.7;margin:2px 4px 0 0;pointer-events:none;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
+#grid-bg .hex.reach{filter:brightness(1.35);
+  box-shadow:inset 0 0 0 2.5px #7ec8f0, 0 0 10px rgba(126,200,240,.7);animation:hexpulse 1.1s infinite}
+#grid-bg .hex.reach:hover{filter:brightness(1.6)}
+@keyframes hexpulse{50%{box-shadow:inset 0 0 0 2.5px #bfe6ff,0 0 16px rgba(126,200,240,.9)}}
+
+/* ===== 被弾カットイン（艦これ風） ===== */
+#dmg-cutin{position:fixed;inset:0;z-index:550;display:flex;align-items:center;justify-content:center;
+  pointer-events:none;overflow:hidden}
+#dmg-cutin.hidden{display:none}
+#dmg-cutin .ci-bg{position:absolute;inset:0;clip-path:polygon(0 18%,100% 8%,100% 82%,0 92%);opacity:.96}
+#dmg-cutin .ci-art{position:relative;height:80%;transform:translateX(-12%);
+  animation:ciArt .5s cubic-bezier(.15,.9,.25,1)}
+#dmg-cutin .ci-art img{height:100%;object-fit:contain;filter:drop-shadow(0 8px 24px rgba(0,0,0,.8))}
+#dmg-cutin .ci-label{position:absolute;right:8%;top:30%;font-family:"Black Ops One";font-size:3.4rem;
+  color:#fff;text-shadow:0 0 18px #ff5a5a,3px 3px 0 #000;transform:rotate(-6deg);
+  animation:ciLabel .5s cubic-bezier(.2,1.4,.3,1)}
+#dmg-cutin .ci-name{position:absolute;right:9%;top:52%;font-family:"Shippori Mincho";font-weight:800;
+  font-size:1.5rem;color:#ffe07a;text-shadow:2px 2px 0 #000}
+#dmg-cutin.show{animation:ciFade 1.7s forwards}
+@keyframes ciFade{0%{opacity:0}8%{opacity:1}85%{opacity:1}100%{opacity:0}}
+@keyframes ciArt{from{transform:translateX(-60%);opacity:0}to{transform:translateX(-12%);opacity:1}}
+@keyframes ciLabel{from{transform:rotate(-6deg) scale(2.5);opacity:0}to{transform:rotate(-6deg) scale(1);opacity:1}}
+/* ダメージ演出 */
+.dmgfx{position:absolute;transform:translate(-50%,-50%);z-index:6;pointer-events:none;
+  font-family:"Black Ops One";font-size:1.1rem;font-weight:700;
+  animation:dmgrise .72s ease-out forwards;text-shadow:0 2px 3px #000}
+.dmgfx.dmg{color:#ffe07a}
+.dmgfx.dmg-ally{color:#ff8a8a}
+@keyframes dmgrise{0%{opacity:0;transform:translate(-50%,-30%) scale(.6)}
+  25%{opacity:1;transform:translate(-50%,-90%) scale(1.2)}
+  100%{opacity:0;transform:translate(-50%,-160%) scale(1)}}
+.fu.hit{animation:shake .3s}
+@keyframes shake{0%,100%{}25%{transform:translate(-58%,-50%)}75%{transform:translate(-46%,-50%)}}
+/* ターンバー */
+#turn-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;
+  background:rgba(0,0,0,.4);padding:7px 14px;border-radius:6px;border:1px solid rgba(212,175,55,.2);font-size:.85rem}
+#turn-ind{font-family:"Shippori Mincho";font-weight:800;color:var(--gold2)}
+#wave-ind{font-size:.78rem;color:#9aa088}
+/* 選択中・攻撃対象 */
+.fu{z-index:3}
+.fu.ally.sel img{filter:drop-shadow(0 0 9px var(--gold2));outline:none}
+.fu.ally.sel::after{content:"";position:absolute;inset:-2px;border:2px solid var(--gold2);border-radius:8px;animation:hpulse 1s infinite}
+.fu.ally.done{opacity:.5;filter:grayscale(.6)}
+.fu.enemy.target .shape{box-shadow:0 0 0 3px var(--accent2),0 0 12px var(--accent2)!important;cursor:pointer}
+.fu.enemy.target::after{content:"⚔";position:absolute;top:-14px;left:50%;transform:translateX(-50%);color:var(--accent2);font-size:.9rem}
+.base-struct{position:absolute;top:50%;transform:translateY(-50%);font-size:2.6rem;z-index:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))}
+.base-struct.ally-base{left:0.5%}.base-struct.enemy-base{right:0.5%}
+#field-units{position:absolute;inset:0;z-index:2;pointer-events:none}
+#field-units .fu{pointer-events:auto}
+.fu{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;
+  transition:left .35s ease, top .3s ease;width:46px}
+.fu-hp{width:40px;height:5px;background:rgba(0,0,0,.5);border-radius:3px;overflow:hidden;margin-bottom:2px}
+.fu-hp i{display:block;height:100%;background:linear-gradient(90deg,#7ec97e,#bfe6a0)}
+.fu-hp.enemy i{background:linear-gradient(90deg,#e8765d,#f0a890)}
+.fu.ally img{height:64px;object-fit:contain;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5))}
+.fu.ally.buff img{filter:drop-shadow(0 0 8px var(--gold2))}
+.fu.enemy .shape{display:block}
+.fu .shape{width:34px;height:34px;background:var(--ec);box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 0 8px rgba(255,255,255,.3)}
+.fu.circle .shape{border-radius:50%}
+.fu.square .shape{border-radius:4px}
+.fu.triangle .shape{width:0;height:0;background:transparent!important;border-left:18px solid transparent;border-right:18px solid transparent;border-bottom:32px solid var(--ec);box-shadow:none}
+.fu.diamond .shape{transform:rotate(45deg);border-radius:4px}
+.fu.boss .shape{width:46px;height:46px;box-shadow:0 0 14px var(--ec),inset 0 0 10px rgba(0,0,0,.4)}
+.fu.boss.triangle .shape{border-left-width:24px;border-right-width:24px;border-bottom-width:42px}
+
+/* にゃんこ式 デプロイHUD */
+#deploy-hud{margin-bottom:10px}
+.cost-bar{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.cost-ico{font-size:.8rem;color:var(--gold2);white-space:nowrap}
+.cb-track{flex:1;height:14px;background:#0c0e08;border-radius:7px;overflow:hidden;border:1px solid rgba(0,0,0,.6)}
+.cb-track i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3a72a0,#7ec8f0,#bfe6ff);transition:width .25s}
+.cost-bar b{font-family:"Saira Condensed";color:#7ec8f0;min-width:64px;text-align:right;font-size:.82rem}
+#deploy-panel{display:flex;gap:6px;flex-wrap:wrap}
+.dep-btn{position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;
+  width:70px;padding:5px 3px;background:linear-gradient(#2a3320,#161a10);
+  border:1px solid var(--gold);border-radius:8px;clip-path:none;box-shadow:none;cursor:pointer}
+.dep-btn img{width:42px;height:42px;object-fit:contain}
+.dep-name{font-size:.64rem;color:var(--sand);line-height:1;white-space:nowrap;overflow:hidden;max-width:64px;text-overflow:ellipsis}
+.dep-cost{font-size:.62rem;color:#7ec8f0}
+.dep-btn.off{opacity:.45;border-color:#555;filter:grayscale(.6)}
+.dep-cd{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.6);
+  border-radius:8px;font-family:"Black Ops One";color:#fff;font-size:1rem}
+.fu.ally img{height:52px;object-fit:contain;filter:drop-shadow(0 3px 4px rgba(0,0,0,.6))}
+.fu.ally.buff img{filter:drop-shadow(0 0 8px var(--gold2))}
+
+#battle-controls{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.bc-group{display:flex;gap:6px;flex-wrap:wrap}
+.bc-move button{flex:1}
+.atk-btn,.skill-btn{padding:9px 12px;font-size:.82rem;background:linear-gradient(#2a3320,#161a10);
+  border:1px solid rgba(212,175,55,.25);clip-path:none;border-radius:6px;box-shadow:none}
+.atk-btn.sel{background:linear-gradient(var(--accent),#7a2419);border-color:var(--gold)}
+.skill-btn{border-color:rgba(95,168,211,.4)}
+.atk-btn:disabled,.skill-btn:disabled{opacity:.4;cursor:not-allowed}
+#bc-defend.on{background:linear-gradient(#3a72a0,#1f4a68);border-color:#7ec8f0}
+.bc-misc{justify-content:space-between}
+
+#battle-result{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
+  background:rgba(5,6,3,.7);backdrop-filter:blur(3px)}
+#battle-result .br-card{background:linear-gradient(160deg,#262e1b,#12150d);border:2px solid var(--gold);
+  border-radius:14px;padding:30px 40px;text-align:center;animation:deployIn .5s}
+#battle-result h3{font-family:"Shippori Mincho";font-size:2rem;color:var(--sand);margin-bottom:16px}
+#battle-result.br-lose .br-card{border-color:var(--accent)}
+#battle-result .br-sub{font-size:.9rem;color:var(--gold2);opacity:.9;margin-bottom:14px;letter-spacing:1px}
+#battle-result .br-summary{list-style:none;margin:0 auto 18px;padding:12px 16px;text-align:left;
+  max-width:320px;display:flex;flex-direction:column;gap:6px;
+  background:rgba(0,0,0,.28);border:1px solid rgba(212,175,55,.25);border-radius:10px}
+#battle-result .br-summary li{font-size:.92rem;color:#e8e0c4;display:flex;justify-content:space-between;gap:10px}
+#battle-result .br-summary li b{font-family:"Saira Condensed";color:var(--gold2);font-size:1.05rem}
+#battle-result .br-summary li.br-special{display:block;color:var(--gold2);font-weight:600;
+  border-top:1px dashed rgba(212,175,55,.3);padding-top:5px}
+#battle-result.br-lose .br-summary{border-color:rgba(192,57,43,.35)}
+@media(max-width:560px){#battle-result .br-card{padding:22px 20px;max-width:90vw}
+  #battle-result .br-summary{max-width:100%}#battle-result h3{font-size:1.5rem}}
+@media(max-width:560px){#battlefield{height:300px}.fu{width:38px}.fu.ally img{height:40px}}
+
+/* ===== 編成：小隊タブ & D&D ===== */
+.squad-tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.sq-tab{padding:8px 14px;font-size:.85rem;background:linear-gradient(#2a3320,#161a10);
+  border:1px solid rgba(212,175,55,.25);clip-path:none;border-radius:6px 6px 0 0;box-shadow:none}
+.sq-tab.active{background:linear-gradient(var(--accent),#7a2419);border-color:var(--gold)}
+#squad-bar{grid-template-columns:repeat(6,1fr)!important}
+@media(max-width:680px){#squad-bar{grid-template-columns:repeat(3,1fr)!important}}
+.slot.dragover{border-color:var(--accent2)!important;border-style:solid;background:rgba(232,93,74,.2)}
+.card.dragging,.slot.dragging{opacity:.45}
+.slot-x{position:absolute;top:3px;right:5px;z-index:5;font-size:.7rem;color:#fff;background:rgba(150,30,20,.85);
+  width:18px;height:18px;border-radius:50%;display:grid;place-items:center;cursor:pointer}
+.slot-x:hover{background:var(--accent)}
+.card[draggable]{cursor:grab}.card[draggable]:active{cursor:grabbing}
+
+/* ===== 秘書選択 ===== */
+#sec-select{position:fixed;inset:0;z-index:520;display:flex;align-items:center;justify-content:center;
+  background:rgba(5,6,3,.75);backdrop-filter:blur(3px)}
+.sec-select-card{background:linear-gradient(160deg,#262e1b,#12150d);border:1px solid var(--gold);border-radius:12px;
+  padding:16px;max-width:520px;width:92%;max-height:80%;overflow-y:auto}
+.ss-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.ss-head b{font-family:"Shippori Mincho";color:var(--sand);font-size:1.1rem}
+.ss-head button{padding:5px 10px;background:rgba(0,0,0,.4)}
+
+/* ===== 固有能力ボックス ===== */
+.ability-box{margin-top:12px;background:rgba(192,57,43,.12);border:1px solid rgba(232,93,74,.4);
+  border-radius:8px;padding:10px 12px}
+.ab-name{display:block;font-family:"Shippori Mincho";font-weight:800;color:var(--accent2);font-size:1rem}
+.ab-desc{display:block;font-size:.82rem;color:#d8d6c8;margin-top:3px}
+
+/* ===== 詳細：史実 & 立ち絵拡大 ===== */
+.mi-intro{font-size:.92rem;line-height:1.5;color:#e8e6dc;border-left:3px solid var(--accent);padding-left:10px;margin-bottom:10px}
+.mi-history{background:rgba(0,0,0,.25);border:1px solid rgba(212,175,55,.18);border-radius:8px;padding:10px 12px}
+.mi-history b{color:var(--gold2);font-size:.85rem}
+.mi-history p{font-size:.82rem;line-height:1.7;color:#cdd0bf;margin-top:5px}
+#modal-art{cursor:zoom-in}
+#modal-states{position:absolute;left:0;right:0;top:0;z-index:4;display:flex;gap:3px;
+  justify-content:center;flex-wrap:nowrap;padding:6px;background:linear-gradient(180deg,rgba(8,10,6,.9),transparent)}
+.ms-btn{padding:5px 8px;font-size:.7rem;border-radius:5px;clip-path:none;box-shadow:none;
+  background:rgba(20,24,16,.9);border:1px solid rgba(212,175,55,.3);color:#cdd0bf}
+.ms-btn.sel{background:linear-gradient(var(--accent),#7a2419);border-color:var(--gold);color:#fff}
+#modal-art.zoom #modal-states{display:none}
+#modal-art.zoom{position:fixed;inset:0;z-index:600;flex:none;background:rgba(5,6,3,.95);cursor:zoom-out}
+#modal-art.zoom #modal-img{height:96%;cursor:zoom-out}
+
+/* ===== 図鑑 ===== */
+.dex-no{position:absolute;top:5px;left:7px;z-index:3;font-family:"Black Ops One";font-size:.6rem;
+  color:var(--gold2);background:rgba(0,0,0,.5);padding:1px 6px;border-radius:8px}
+.dex-tap{font-size:.68rem;color:#7a8a55;text-align:center;margin-top:5px;border-top:1px dashed #b3a888;padding-top:4px}
+
+/* ===== 改装プレビュー ===== */
+.rm-next{color:var(--gold2);font-weight:700;margin:3px 0}
+.rm-gain{color:#8ee08e;font-size:.7rem;line-height:1.5}
+.rm-ab{color:var(--accent2);font-weight:700}
+.rm-cost{color:#cdd0bf;font-size:.68rem;margin-top:3px}
+
+/* ===== 修理演出 ===== */
+.card.repairing{animation:repairGlow 1.3s ease-in-out infinite}
+@keyframes repairGlow{0%,100%{box-shadow:0 4px 10px rgba(0,0,0,.45)}50%{box-shadow:0 0 18px rgba(95,168,211,.7)}}
+.repair-fx{position:relative;height:0}
+.repair-fx .spark{position:absolute;font-size:1rem;animation:sparkUp 1.1s ease-out infinite;opacity:0}
+.repair-fx .spark{left:30%;bottom:60px}
+.repair-fx .s2{left:55%;animation-delay:.35s}
+.repair-fx .s3{left:42%;animation-delay:.7s}
+@keyframes sparkUp{0%{opacity:0;transform:translateY(0) scale(.6)}30%{opacity:1}100%{opacity:0;transform:translateY(-34px) scale(1.1)}}
+
+/* ===== サブナビ（工廠） ===== */
+.subnav{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.subnav button{padding:8px 16px;font-size:.88rem;background:linear-gradient(#2a3320,#161a10);
+  border:1px solid rgba(212,175,55,.2);clip-path:none;border-radius:6px;box-shadow:none}
+.subnav button.active{background:linear-gradient(var(--accent),#7a2419);border-color:var(--gold)}
+.subtab{display:none}.subtab.active{display:block;animation:fade .25s}
+.subhead{font-family:"Shippori Mincho",serif;color:var(--sand);margin:16px 0 8px;font-size:1.1rem;
+  border-bottom:1px solid rgba(212,175,55,.2);padding-bottom:4px}
+
+/* ===== 工場依頼 ===== */
+#commission-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.commission{background:linear-gradient(150deg,rgba(40,46,28,.9),rgba(21,23,15,.92));
+  border:1px solid rgba(212,175,55,.2);border-left:4px solid var(--od3);border-radius:8px;padding:14px}
+.cm-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.cm-head b{font-family:"Shippori Mincho";font-size:1.05rem;color:var(--sand)}
+.cm-status{font-size:.7rem;color:var(--gold2);background:rgba(0,0,0,.3);padding:2px 8px;border-radius:10px}
+.cm-cost,.cm-pool{font-size:.76rem;color:#aeb49a;margin:3px 0}
+.cm-timer{font-family:"Black Ops One";font-size:1.6rem;color:var(--accent2);text-align:center;margin:8px 0;
+  text-shadow:0 0 12px rgba(232,93,74,.4)}
+
+/* ===== 任務 ===== */
+.mission{display:flex;justify-content:space-between;align-items:center;gap:14px;
+  background:linear-gradient(120deg,rgba(40,46,28,.9),rgba(21,23,15,.92));
+  border:1px solid rgba(212,175,55,.18);border-left:5px solid var(--od3);border-radius:8px;padding:12px 16px;margin-bottom:10px}
+.mission.done{border-left-color:var(--gold);box-shadow:0 0 12px rgba(212,175,55,.2)}
+.mission.claimed{opacity:.5;border-left-color:#555}
+.ms-main{flex:1}.ms-main b{font-family:"Shippori Mincho";color:var(--sand)}
+.ms-main small{display:block;font-size:.75rem;color:#9aa088;margin:2px 0 6px}
+.ms-prog{height:7px;background:rgba(0,0,0,.5);border-radius:4px;overflow:hidden;max-width:260px;display:inline-block;width:60%}
+.ms-prog i{display:block;height:100%;background:linear-gradient(90deg,var(--od3),var(--gold2))}
+.ms-cnt{font-size:.74rem;color:var(--gold2);margin-left:8px}
+.ms-rwd{text-align:right;font-size:.8rem}.ms-rwd span{display:block;color:#ffe07a;margin-bottom:6px}
+
+/* ===== 商店 / アイテム ===== */
+#shop-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.shop-item{display:flex;align-items:center;gap:12px;background:linear-gradient(120deg,rgba(40,46,28,.9),rgba(21,23,15,.92));
+  border:1px solid rgba(212,175,55,.18);border-radius:8px;padding:10px 14px}
+.si-icon{font-size:1.8rem}.si-body{flex:1}.si-body b{color:var(--sand)}.si-body small{display:block;font-size:.72rem;color:#9aa088}
+.si-buy{text-align:right}.si-buy span{display:block;color:#ffe07a;font-size:.8rem;margin-bottom:4px}
+#inventory,#weapon-inv{display:flex;flex-wrap:wrap;gap:8px}
+.inv-item{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.3);border:1px solid rgba(212,175,55,.2);
+  border-radius:6px;padding:6px 12px;font-size:.85rem}
+.inv-item b{color:var(--sand)}.inv-item .cnt{color:var(--gold2);font-weight:700}
+.inv-item small{color:#9aa088;font-size:.72rem}
+.inv-item.weapon button{padding:4px 10px;font-size:.75rem}
+
+/* ===== 戦績 ===== */
+.rec-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.rec-grid>div{background:rgba(0,0,0,.3);border:1px solid rgba(212,175,55,.15);border-radius:8px;padding:10px;text-align:center}
+.rec-grid b{display:block;font-family:"Black Ops One";font-size:1.4rem;color:var(--gold2)}
+.rec-grid small{font-size:.7rem;color:#9aa088}
+#name-input{font-family:inherit;font-size:.95rem;padding:9px 12px;border-radius:6px;border:1px solid rgba(212,175,55,.3);
+  background:rgba(0,0,0,.3);color:#fff}
+
+/* ===== 改装/修理 カードのフッタ ===== */
+.rm-info{font-size:.72rem;color:#cdd0bf;margin:6px 0;line-height:1.5;text-align:center}
+#remodel-list .card button,#repair-list .card button{width:100%;padding:7px;font-size:.78rem;margin:3px 0 0}
+.repair-allbar{grid-column:1/-1;margin-bottom:4px}
+.repair-all-btn{width:100%;padding:11px;font-size:.92rem;font-weight:700;letter-spacing:1px;color:var(--ink);
+  border:none;border-radius:8px;cursor:pointer;
+  background:linear-gradient(90deg,var(--gold),var(--gold2));
+  box-shadow:0 3px 10px rgba(0,0,0,.4);transition:.18s}
+.repair-all-btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+
+/* ===== 図鑑ロック ===== */
+.card.locked{background:linear-gradient(165deg,#2a2e22,#1a1d14);border-top-color:#444;cursor:default}
+.card.locked .cname,.card.locked .cbase{color:#666}
+.portrait.locked{background:repeating-linear-gradient(45deg,#222 0 10px,#2a2a2a 10px 20px)!important;
+  color:#555;font-size:2.4rem}
+
+@media(max-width:560px){
+  #cmdbox{order:3;width:100%}.rec-grid{grid-template-columns:repeat(2,1fr)}
+  #clock{margin-left:0}
+}
+
+/* ===== 装備システム ===== */
+/* 詳細モーダル内の装備欄 */
+.me-head{font-family:"Shippori Mincho";font-size:.82rem;color:var(--sand);letter-spacing:1px;
+  margin-top:12px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(212,175,55,.25)}
+#modal-equip{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.me-slot{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:7px;
+  border:1px solid rgba(212,175,55,.25);background:rgba(0,0,0,.3);cursor:pointer;transition:.15s}
+.me-slot:hover{background:rgba(255,255,255,.06);border-color:rgba(212,175,55,.45)}
+.me-slot.empty{border-style:dashed;opacity:.7}
+.me-slot.filled{border-style:solid;border-left:3px solid var(--gold)}
+.me-ic{font-size:1.3rem;flex:none;line-height:1}
+.me-body{flex:1;min-width:0}
+.me-body b{display:block;color:var(--sand);font-weight:700;font-size:.9rem}
+.me-body small{display:block;color:#9aa088;font-size:.74rem;margin-top:1px}
+.me-x{flex:none;font-size:.95rem;color:rgba(224,90,46,.6);cursor:pointer;padding:0 4px;transition:.15s}
+.me-x:hover{color:var(--accent)}
+.me-locked{font-size:.74rem;color:#9aa088;opacity:.8;text-align:center;padding:6px 0}
+
+/* 装備ピッカー（オーバーレイ） */
+#equip-picker{position:fixed;inset:0;z-index:540;display:flex;align-items:center;justify-content:center;
+  background:rgba(5,6,3,.75);backdrop-filter:blur(3px)}
+#equip-picker.hidden{display:none}
+.ep-card{background:linear-gradient(160deg,#262e1b,#12150d);border:1px solid var(--gold);border-radius:12px;
+  padding:16px;max-width:460px;width:92%;max-height:80%;overflow-y:auto}
+#equip-picker-list{display:flex;flex-direction:column;gap:6px}
+.ep-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;
+  background:rgba(0,0,0,.3);border:1px solid rgba(212,175,55,.2);cursor:pointer;transition:.15s}
+.ep-item:hover{background:rgba(255,255,255,.07);border-color:rgba(212,175,55,.4)}
+.ep-item .cnt{flex:none;color:var(--gold2);font-weight:700;font-family:"Black Ops One";font-size:.85rem}
+
+/* 鋳造タブ＆所持装備リスト */
+#equip-inv{display:flex;flex-wrap:wrap;gap:8px}
+.equip-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
+  background:linear-gradient(120deg,rgba(40,46,28,.9),rgba(21,23,15,.92));
+  border:1px solid rgba(212,175,55,.18);border-top:3px solid rgba(212,175,55,.18);min-width:240px}
+.equip-card.r3{border-top:3px solid var(--r3)}
+.equip-card.r4{border-top:3px solid var(--r4)}
+.equip-card.r5{border-top:3px solid var(--r5);box-shadow:0 0 12px rgba(232,184,74,.3)}
+.equip-card .eq-txt{flex:1;min-width:0}
+.equip-card b{display:block;color:var(--sand);font-weight:700;font-size:.92rem}
+.equip-card small{display:block;color:#9aa088;font-size:.74rem;margin-top:1px}
+.equip-card .eq-real{display:block;color:#8a9070;font-size:.7rem;font-style:italic;margin-top:2px}
+.equip-card .cnt{flex:none;color:var(--gold2);font-weight:700;font-family:"Black Ops One"}
+#cast-result{margin-top:10px}
+
+@media(max-width:560px){
+  .equip-card{min-width:100%}
+}
+
+/* ===== 戦闘演出 強化 ===== */
+/* 1) 味方の突撃モーション（transformのみ。.fuのleft/top transitionを邪魔しない） */
+.fu.lunge{animation:lunge .32s ease-out}
+@keyframes lunge{
+  0%{transform:translate(-50%,-50%)}
+  35%{transform:translate(-30%,-50%)}
+  55%{transform:translate(-34%,-50%)}
+  100%{transform:translate(-50%,-50%)}}
+
+/* 2) 敵トークンに重ねる現在HP数値 */
+.fu-hpnum{position:absolute;top:-2px;left:50%;transform:translate(-50%,0);
+  font-size:.6rem;font-weight:700;line-height:1;white-space:nowrap;text-align:center;
+  color:#fff;text-shadow:0 1px 2px #000,0 0 4px #000,0 0 2px #000;
+  pointer-events:none;z-index:5;font-family:"Black Ops One"}
+
+/* 3) 選択中の味方の射程内の敵に出る予測ダメージ */
+.dmg-preview{position:absolute;transform:translate(-50%,-50%);z-index:5;pointer-events:none;
+  font-family:"Black Ops One";font-size:.78rem;font-weight:700;letter-spacing:.5px;
+  color:rgba(255,240,190,.82);text-shadow:0 1px 2px #000,0 0 6px rgba(212,175,55,.5);
+  animation:dmgprev 1.4s ease-in-out infinite}
+.dmg-preview.kill{color:rgba(255,150,140,.95);
+  text-shadow:0 1px 2px #000,0 0 8px rgba(232,40,40,.85)}
+@keyframes dmgprev{0%,100%{opacity:.55}50%{opacity:.95}}
+
+/* 4) 被弾フラッシュ強化（シェイク＋赤フラッシュ） */
+.fu.hit{animation:shake .3s, hitflash .3s ease-out}
+@keyframes hitflash{
+  0%{filter:none}
+  18%{filter:drop-shadow(0 0 10px rgba(232,40,40,.95)) brightness(1.6) saturate(1.4)}
+  100%{filter:none}}
+.fu.hit::before{content:"";position:absolute;inset:-6px;border-radius:10px;
+  background:radial-gradient(circle,rgba(232,40,40,.55),transparent 70%);
+  pointer-events:none;z-index:4;animation:hitring .3s ease-out forwards}
+@keyframes hitring{0%{opacity:.9;transform:scale(.7)}100%{opacity:0;transform:scale(1.25)}}
+
+/* 5) ダメージ数値ポップ 微強化 */
+.dmgfx{text-shadow:0 2px 3px #000,0 0 8px rgba(0,0,0,.7)}
+.dmgfx.dmg{text-shadow:0 2px 3px #000,0 0 10px rgba(212,175,55,.7)}
+.dmgfx.dmg-ally{text-shadow:0 2px 3px #000,0 0 10px rgba(232,40,40,.7)}
+@keyframes dmgrise{0%{opacity:0;transform:translate(-50%,-30%) scale(.55) rotate(-4deg)}
+  22%{opacity:1;transform:translate(-50%,-95%) scale(1.32) rotate(2deg)}
+  100%{opacity:0;transform:translate(-50%,-175%) scale(1) rotate(0)}}
+
+/* 6) 敵図形の威圧感（脈動グロー・縁取り） */
+.fu.enemy .shape{position:relative;animation:enemyPulse 2.2s ease-in-out infinite}
+@keyframes enemyPulse{0%,100%{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 0 8px rgba(255,255,255,.3),0 0 5px var(--ec)}
+  50%{box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 0 8px rgba(255,255,255,.3),0 0 12px var(--ec)}}
+.fu.enemy.triangle .shape{animation:enemyPulseTri 2.2s ease-in-out infinite}
+@keyframes enemyPulseTri{0%,100%{filter:drop-shadow(0 0 3px var(--ec))}
+  50%{filter:drop-shadow(0 0 9px var(--ec))}}
+.fu.enemy.boss .shape{animation:bossPulse 1.8s ease-in-out infinite}
+@keyframes bossPulse{0%,100%{box-shadow:0 0 14px var(--ec),inset 0 0 10px rgba(0,0,0,.4)}
+  50%{box-shadow:0 0 26px var(--ec),0 0 8px rgba(232,40,40,.5),inset 0 0 14px rgba(0,0,0,.55)}}
+.fu.enemy.boss.triangle .shape{animation:bossPulseTri 1.8s ease-in-out infinite;box-shadow:none}
+@keyframes bossPulseTri{0%,100%{filter:drop-shadow(0 0 8px var(--ec))}
+  50%{filter:drop-shadow(0 0 16px var(--ec)) drop-shadow(0 0 6px rgba(232,40,40,.5))}}
+
+footer{text-align:center;padding:18px;font-size:.72rem;letter-spacing:2px;color:#6a6f58;
+  border-top:1px solid rgba(212,175,55,.12);margin-top:20px}
+
+@media(max-width:560px){
+  .brand h1{font-size:1.5rem}.res small{display:none}
+  #tabs button{font-size:.85rem;letter-spacing:1px}
+  #squad-bar{grid-template-columns:repeat(2,1fr)}
+}
+
+/* ===== UI refresh v0.5.1 ===== */
+body, body *{letter-spacing:0!important}
+body{
+  color:#f2efe4;
+  background:
+    linear-gradient(135deg, rgba(76,33,38,.18), transparent 34%),
+    linear-gradient(225deg, rgba(34,85,112,.20), transparent 38%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.018) 0 1px, transparent 1px 18px),
+    linear-gradient(145deg, #10130d 0%, #181b11 42%, #111720 100%);
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;
+  background:
+    linear-gradient(120deg, transparent 0 42%, rgba(255,255,255,.04) 42% 42.4%, transparent 42.4% 100%),
+    repeating-linear-gradient(150deg, rgba(212,175,55,.035) 0 1px, transparent 1px 54px);
+  opacity:.75;
+}
+.scanlines{opacity:.22;background:repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 4px)}
+
+#topbar{
+  padding:14px clamp(14px,2.5vw,28px);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.075), transparent 46%),
+    linear-gradient(120deg, rgba(64,75,42,.96), rgba(26,31,21,.94) 52%, rgba(25,38,52,.96));
+  border-bottom:1px solid rgba(236,210,142,.32);
+  box-shadow:0 1px 0 rgba(255,255,255,.08) inset, 0 10px 28px rgba(0,0,0,.34);
+}
+#topbar::after{
+  bottom:0;height:2px;
+  background:linear-gradient(90deg, transparent, var(--gold2) 18%, rgba(126,200,240,.75) 52%, var(--accent2) 82%, transparent);
+}
+.insignia{
+  border-radius:8px;
+  background:linear-gradient(145deg,#f7df82,#b48a20);
+  box-shadow:0 0 0 1px rgba(0,0,0,.5), 0 10px 18px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.45);
+  animation:none;
+}
+.brand h1{font-size:2.05rem;color:#fff1c8;text-shadow:0 2px 0 #000, 0 0 20px rgba(240,214,120,.25)}
+.brand .sub{color:#8fd0ff;opacity:.86;margin-top:1px}
+#cmdbox{
+  min-width:220px;padding:9px 11px;border-radius:8px;
+  background:rgba(4,7,5,.24);border:1px solid rgba(255,255,255,.10);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+}
+#clock{color:#8fd0ff}
+.cmd-exp{height:8px}
+#resources{gap:9px}
+.res{
+  border-radius:8px;clip-path:none;
+  background:linear-gradient(180deg, rgba(255,255,255,.09), rgba(0,0,0,.32));
+  border-color:rgba(236,210,142,.28);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 8px 20px rgba(0,0,0,.18);
+}
+.res b{color:#fff1a6}.res.gold b{color:#ffdc73}
+
+#notibar{
+  background:rgba(8,11,8,.84);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  color:#d9e8c8;
+}
+#tabs{
+  background:rgba(10,13,9,.88);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid rgba(236,210,142,.20);
+  box-shadow:0 10px 24px rgba(0,0,0,.18);
+}
+#tabs button{
+  min-height:50px;color:#b8c0aa;border-bottom-width:2px;
+}
+#tabs button.active{
+  color:#fff7df;border-bottom-color:#8fd0ff;
+  background:linear-gradient(180deg, rgba(143,208,255,.14), rgba(240,214,120,.08));
+  text-shadow:none;
+}
+#tabs button:hover{background:rgba(255,255,255,.07)}
+
+main{max-width:1180px;padding:26px clamp(12px,2vw,22px) 42px}
+h2{font-size:1.55rem;color:#fff1c8;margin-bottom:16px}
+h2::before{width:4px;border-radius:3px;background:linear-gradient(#8fd0ff,var(--accent2))}
+.h2sub{color:#8fd0ff;opacity:.78}
+.hint{
+  border-left:0;border-radius:8px;padding:10px 12px;margin-bottom:16px;
+  background:rgba(255,255,255,.055);color:#d7d8c8;opacity:1;
+  border:1px solid rgba(255,255,255,.08);
+}
+.panel{
+  border-radius:8px;
+  background:linear-gradient(150deg, rgba(39,48,32,.82), rgba(16,20,16,.92));
+  border-color:rgba(236,210,142,.22);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 18px 40px rgba(0,0,0,.24);
+}
+button{
+  border-radius:8px;clip-path:none;
+  background:linear-gradient(180deg, rgba(104,125,70,.96), rgba(52,66,41,.96));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 8px 16px rgba(0,0,0,.22);
+}
+button:hover{background:linear-gradient(180deg, rgba(124,147,83,.98), rgba(64,80,48,.98));transform:translateY(-1px)}
+button:active{transform:translateY(1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 4px 8px rgba(0,0,0,.20)}
+
+#port{
+  height:clamp(540px, calc(100vh - 190px), 650px);
+  min-height:540px;border-radius:8px;
+  border-color:rgba(255,238,178,.34);
+  box-shadow:0 24px 70px rgba(0,0,0,.46), inset 0 0 0 1px rgba(255,255,255,.05);
+}
+#port::before{
+  content:"";position:absolute;left:5%;right:5%;bottom:-10%;height:42%;z-index:1;pointer-events:none;
+  background:
+    linear-gradient(90deg, transparent, rgba(255,239,198,.12) 26%, rgba(143,208,255,.10) 52%, rgba(255,239,198,.10) 76%, transparent),
+    repeating-linear-gradient(90deg, transparent 0 44px, rgba(255,255,255,.05) 44px 45px);
+  transform:perspective(640px) rotateX(58deg);
+  filter:blur(.2px);
+}
+#port::after{
+  content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06), inset 0 -120px 110px rgba(4,6,5,.34);
+}
+#port-bg{background:#121811}
+#port-bg.theme-photo::before{
+  background-image:url('../assets/ui/hq.png');
+  background-size:cover;background-position:center 43%;
+  filter:brightness(.78) saturate(1.08) contrast(1.02);
+  transform:scale(1.012);
+}
+#port-bg.theme-photo::after{
+  content:"";position:absolute;inset:0;
+  background:
+    linear-gradient(90deg, rgba(7,9,5,.68) 0%, rgba(7,9,5,.22) 31%, rgba(7,9,5,.10) 58%, rgba(7,9,5,.56) 100%),
+    linear-gradient(180deg, rgba(7,9,5,.18) 0%, transparent 34%, rgba(7,9,5,.70) 100%);
+}
+#port-bg::after{
+  background:
+    linear-gradient(90deg, rgba(7,9,5,.70), transparent 28%, transparent 66%, rgba(7,9,5,.68)),
+    linear-gradient(180deg, rgba(7,9,5,.22), transparent 44%, rgba(7,9,5,.72));
+}
+#secretary-img{
+  left:56%;height:93%;max-height:620px;
+  filter:brightness(1.12) contrast(1.06) drop-shadow(0 18px 30px rgba(0,0,0,.82)) drop-shadow(0 0 2px rgba(255,255,255,.34));
+}
+#port-overlay{left:18px;bottom:18px;max-width:min(520px,58%);padding:0}
+#sec-nameplate{
+  border-radius:8px;border-left:0;padding:13px 16px;
+  background:linear-gradient(115deg, rgba(10,13,9,.86), rgba(18,26,30,.62));
+  border:1px solid rgba(255,238,178,.24);
+  box-shadow:0 14px 30px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.08);
+}
+#sec-name{font-size:2.25rem;color:#fff5d4;text-shadow:0 2px 0 #000,0 0 18px rgba(0,0,0,.45)}
+#sec-base{color:#8fd0ff}
+#sec-class{color:#d4d1bb}
+#sec-speech{
+  border-radius:8px;padding:14px 16px;
+  background:linear-gradient(115deg, rgba(10,13,9,.88), rgba(28,42,44,.58));
+  border-color:rgba(143,208,255,.24);
+  box-shadow:0 14px 30px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08);
+}
+#port-side{right:12px;padding-right:0}
+.port-menu{gap:8px}
+.port-menu .pm{
+  min-width:136px;border-radius:8px;padding:12px 14px;
+  background:linear-gradient(100deg, rgba(20,25,18,.86), rgba(43,58,54,.74));
+  border-color:rgba(255,238,178,.25);
+  box-shadow:0 10px 22px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.10);
+}
+.port-menu .pm:hover{
+  background:linear-gradient(100deg, rgba(143,208,255,.26), rgba(192,57,43,.52));
+  transform:translateX(-4px);
+}
+#port-foot{
+  padding:14px 18px;
+  background:linear-gradient(180deg, rgba(8,10,6,.62), transparent);
+}
+#port-foot #base-stats{
+  padding:8px 12px;border-radius:8px;
+  background:rgba(9,12,8,.46);border:1px solid rgba(255,255,255,.10);
+  backdrop-filter:blur(6px);
+}
+#base-stats b{color:#fff1a6}
+
+.card{
+  border-radius:8px;
+  background:linear-gradient(160deg, rgba(255,248,230,.98), rgba(218,202,164,.98));
+  border-color:rgba(255,255,255,.46);
+  box-shadow:0 12px 26px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.45);
+}
+.card:hover{transform:translateY(-4px);box-shadow:0 18px 34px rgba(0,0,0,.30), 0 0 0 1px var(--rc)}
+.card .portrait{
+  height:150px;border-radius:8px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.16), transparent 42%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 1px, transparent 1px 20px),
+    linear-gradient(150deg, rgba(67,86,61,.96), rgba(21,31,33,.96));
+}
+.card .portrait::before{width:78%;height:70%;background:linear-gradient(180deg, rgba(255,241,192,.34), rgba(143,208,255,.11) 58%, transparent)}
+.card .cname{font-size:1.12rem;color:#171910}
+.card .cbase{color:#4c4a38}
+.card .stat{color:#28281c}
+.slot{
+  border-radius:8px;
+  background:rgba(8,12,8,.34);
+  border-color:rgba(143,208,255,.22);
+}
+.slot.filled{
+  border-color:rgba(255,238,178,.52);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.08), transparent 38%),
+    radial-gradient(ellipse at 50% 100%, rgba(143,208,255,.22), transparent 60%),
+    linear-gradient(160deg, rgba(40,52,38,.82), rgba(9,12,8,.78));
+}
+
+.area-card,.mission,.shop-item,.commission,.equip-card{
+  border-radius:8px;
+  background:linear-gradient(120deg, rgba(34,43,31,.88), rgba(15,20,18,.92));
+  box-shadow:0 12px 28px rgba(0,0,0,.18);
+}
+#battlefield{
+  border-radius:8px;
+  background:
+    linear-gradient(90deg, rgba(95,168,211,.10), transparent 42%, rgba(192,57,43,.12)),
+    linear-gradient(180deg, #7d8e69, #4f633a);
+}
+#battle-log{border-radius:8px;background:rgba(8,11,10,.88)}
+#modal-card,.sec-select-card,.ep-card{border-radius:8px;box-shadow:0 28px 80px rgba(0,0,0,.54)}
+#modal-art{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.08), transparent 36%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.04) 0 1px, transparent 1px 24px),
+    linear-gradient(160deg,#3a4528,#111916);
+}
+
+@media(max-width:720px){
+  #topbar{align-items:flex-start}
+  #resources{width:100%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+  .res{justify-content:center;padding:7px 6px}
+  #tabs button{flex:0 0 88px;min-width:88px;white-space:nowrap}
+  #port{height:560px;min-height:560px}
+  #secretary-img{left:58%;height:86%;max-width:78%}
+  #port-overlay{left:10px;right:10px;bottom:10px;max-width:none}
+  #port-side{top:10px;right:10px;bottom:auto;align-items:flex-start}
+  .port-menu{display:grid;grid-template-columns:repeat(2,auto)}
+  .port-menu .pm{min-width:0;padding:10px 12px}
+  .port-menu .pm span{display:none}
+  #port-foot{padding:10px}
+  #port-foot #base-stats{font-size:.78rem;max-width:calc(100% - 120px)}
+}
+
+/* ============================================================
+   v0.5.2 — 司令室リッチ化 & UI整理（参照画像準拠）
+   ============================================================ */
+
+/* 床面の装飾反射を撤去（写真背景を主役に・視認性優先） */
+#port::before{display:none!important}
+
+/* ヘッダーの経験値数値がボックス外へはみ出すのを抑制（数値は司令室パネルに集約） */
+.cmd-exp small{display:none}
+#cmdbox{padding-bottom:11px}
+
+/* 秘書を中央〜右へ寄せて、左に司令官パネルの居場所を確保 */
+#secretary-img{left:63%}
+
+/* --- 左：司令官パネル --- */
+#port-command{
+  position:absolute;left:18px;top:18px;z-index:3;
+  width:min(290px,42%);
+  display:flex;flex-direction:column;gap:11px;
+  padding:15px 15px 14px;border-radius:8px;
+  background:linear-gradient(160deg, rgba(12,16,11,.88), rgba(9,13,16,.82));
+  border:1px solid rgba(255,238,178,.26);
+  box-shadow:0 16px 34px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter:blur(7px);
+}
+#port-command::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;border-radius:8px 8px 0 0;
+  background:linear-gradient(90deg, var(--gold2), rgba(143,208,255,.65))}
+.pc-officer{display:flex;align-items:baseline;gap:8px}
+.pc-title{font-family:"Shippori Mincho",serif;font-weight:800;font-size:1.02rem;color:#fff5d4}
+.pc-lv{margin-left:auto;font-family:"Saira Condensed";font-size:.9rem;color:#cdd0bf}
+.pc-lv b{font-family:"Black Ops One";font-size:1.5rem;color:var(--gold2);line-height:1;margin-left:2px}
+.pc-exp{position:relative;height:9px;border-radius:5px;overflow:hidden;
+  background:#0a0d07;border:1px solid rgba(0,0,0,.6);box-shadow:inset 0 1px 2px rgba(0,0,0,.8)}
+.pc-exp i{display:block;height:100%;width:0;border-radius:5px;
+  background:linear-gradient(90deg,#6b8f3a,var(--gold2));transition:width .35s}
+.pc-exp small{position:absolute;inset:0;text-align:center;line-height:9px;font-size:.55rem;color:#e8e2ca;text-shadow:0 1px 1px #000}
+#pc-stats{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px;
+  border-radius:7px;overflow:hidden;
+  border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08)}
+#pc-stats li{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:7px 11px;font-size:.82rem;color:#d7dac6;background:rgba(0,0,0,.28)}
+#pc-stats li:nth-child(even){background:rgba(0,0,0,.16)}
+#pc-stats .pl{letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pc-stats b{font-family:"Saira Condensed";font-weight:700;color:#fff1a6;font-size:1.02rem;flex:none}
+.pc-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:1px}
+.pc-act{display:flex;align-items:center;gap:8px;justify-content:flex-start;
+  padding:11px 10px;font-size:.95rem;border-radius:8px;clip-path:none;
+  background:linear-gradient(170deg, rgba(40,52,34,.96), rgba(20,27,18,.96));
+  border:1px solid rgba(255,238,178,.28);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 6px 14px rgba(0,0,0,.26)}
+.pc-act i{font-size:1.12rem;line-height:1;flex:none}
+.pc-act span{white-space:nowrap}
+.pc-act:hover{background:linear-gradient(170deg, var(--accent), #7a2419);border-color:var(--gold);transform:translateY(-1px)}
+.pc-act[data-tab="sortie"]{border-color:rgba(232,93,74,.55)}
+.pc-act[data-tab="sortie"] i{filter:drop-shadow(0 0 4px rgba(232,93,74,.6))}
+
+/* --- 秘書ネームプレート＆セリフ（左下） --- */
+#port-overlay{left:18px;right:auto;bottom:16px;max-width:min(440px,50%);padding:0}
+
+/* --- 右下：丸ユーティリティ --- */
+#port-utils{position:absolute;right:16px;bottom:16px;z-index:4;display:flex;gap:10px}
+.pu{width:46px;height:46px;padding:0;border-radius:50%;clip-path:none;
+  display:grid;place-items:center;font-size:1.22rem;
+  background:linear-gradient(160deg, rgba(20,26,18,.92), rgba(9,13,16,.86));
+  border:1px solid rgba(255,238,178,.3);
+  box-shadow:0 8px 18px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.12);
+  transition:.15s}
+.pu:hover{background:linear-gradient(160deg, rgba(143,208,255,.30), rgba(192,57,43,.5));transform:translateY(-2px)}
+
+/* --- 角丸を8px以下に統一（はみ出し/巨大角丸の是正） --- */
+#battle-result .br-card{border-radius:8px}
+#battle-result .br-summary{border-radius:8px}
+#node-map{border-radius:8px}
+#modal-close{border-radius:6px}
+
+/* --- 司令室モバイル（〜720px） --- */
+@media(max-width:720px){
+  #port-command{left:10px;top:10px;width:min(208px,52%);padding:11px 11px 10px;gap:9px}
+  .pc-title{font-size:.92rem}.pc-lv b{font-size:1.25rem}
+  #pc-stats li{padding:6px 9px;font-size:.74rem}
+  #pc-stats b{font-size:.92rem}
+  .pc-actions{gap:6px}
+  .pc-act{padding:9px 8px;font-size:.84rem;gap:6px}
+  .pc-act i{font-size:1rem}
+  #secretary-img{left:66%;height:84%;max-width:72%}
+  #port-overlay{left:8px;right:auto;bottom:8px;max-width:62%}
+  #port-utils{flex-direction:column;top:10px;right:8px;bottom:auto;gap:8px}
+  .pu{width:40px;height:40px;font-size:1.05rem}
+}
+@media(max-width:430px){
+  #port-command{width:54%}
+  #port-overlay{max-width:none;right:58px}
+  #secretary-img{left:70%}
+}

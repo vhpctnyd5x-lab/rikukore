@@ -1,0 +1,14 @@
+# バックアップ（コードのみ・ローカル保持。リポジトリには含めない）
+backups/
+
+# 画像生成の元素材（重い・配信に不要）
+archive2_imagegen_character_only_final 2/
+
+# OS / 実行時ファイル
+.DS_Store
+**/.DS_Store
+.rikukore-server.pid
+node_modules/
+
+# Vercel
+.vercel
