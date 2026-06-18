@@ -1,0 +1,7 @@
+# デプロイに不要（重い・配信に無関係）
+backups/
+archive2_imagegen_character_only_final 2/
+.DS_Store
+**/.DS_Store
+.rikukore-server.pid
+.git/
