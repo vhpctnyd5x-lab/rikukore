@@ -1,4 +1,4 @@
-/* 陸これ（仮） v0.5.1 — フル機能版 */
+/* 陸これ（仮） v0.6.0 — フル機能版 */
 'use strict';
 
 const CLASS_ICON={"MBT":"🛡️","重戦車":"🐗","中戦車":"🚙","軽戦車":"🏍️","機動戦闘車":"🚙","装甲戦闘車":"🚐","自走砲":"🎯","対空":"🚀","偵察":"🛰️","工兵":"🔧","ヘリ":"🚁","歩兵戦車":"🛡️"};
@@ -118,7 +118,7 @@ function equipSlots(u){ if(!u.equip) u.equip=[null,null,null]; while(u.equip.len
 function equipBonus(u){ const b={fire:0,armor:0,mobility:0,range:0,scout:0};
   equipSlots(u).forEach(id=>{ const e=id&&EQUIPMENTS[id]; if(e) for(const k in e.st) b[k]=(b[k]||0)+e.st[k]; });
   return b; }
-function effStat(u,key){ const c=charOf(u); return Math.max(0, (c[key]||0)+((u.bonus&&u.bonus[key])||0)+equipBonus(u)[key]); }
+function effStat(u,key){ const c=charOf(u); return Math.max(0, (c[key]||0)+((u.bonus&&u.bonus[key])||0)+(equipBonus(u)[key]||0)); }
 
 const WORKSHOPS=[
   {id:"kawasaki",name:"川崎重工業",nation:"🇯🇵",mins:2,cost:{steel:120,parts:90},pool:["type10","chiha"]},
@@ -256,44 +256,22 @@ function gainCmdExp(n){
 }
 
 /* ===== 戦闘力 ===== */
-function unitPower(u){
-  const c=charOf(u), b=u.bonus||{};
-  const lvb=1+(u.level-1)*0.04+(u.remodel||0)*0.08;
-  const fire=c.fire+(b.fire||0),armor=c.armor+(b.armor||0),mob=c.mobility+(b.mobility||0),
-        rng=c.range+(b.range||0),scout=c.scout+(b.scout||0);
-  return Math.round((fire*1.3+armor*0.8+mob*0.5+rng*0.7+scout*0.3)*lvb);
+function lvMul(u){ return 1+(u.level-1)*0.04+(u.remodel||0)*0.08; }
+function unitPower(u){ // 基礎＋改装＋装備（effStat）で数える
+  const s=k=>effStat(u,k);
+  return Math.round((s("fire")*1.3+s("armor")*0.8+s("mobility")*0.5+s("range")*0.7+s("scout")*0.3)*lvMul(u));
 }
 function activeSquad(){ return state.squads[state.activeSquad]; }
 function squadMembers(){ return activeSquad().filter(Boolean).map(findUnit).filter(Boolean); }
 function squadPower(){ return squadMembers().reduce((s,u)=>s+unitPower(u),0); }
 
-/* 固有能力を反映した戦闘力（戦闘時に使用） */
-function battlePower(members, node){
-  const boss=node&&node.type==="boss";
-  let total=0, hasLead=null;
-  members.forEach(u=>{
-    const ab=charOf(u).ability||{}; let m=1;
-    if(ab.type==="selffire") m+=ab.val;
-    if(ab.type==="self_def") m+=ab.val;
-    if(ab.type==="bossfire"&&boss) m+=ab.val;
-    if(ab.type==="vanguard") m+=ab.val;
-    total+=unitPower(u)*m;
-    if(ab.type==="leadership") hasLead=ab.val;
-  });
-  if(members.some(u=>(charOf(u).ability||{}).type==="count")&&members.length>=5)
-    total*=1+(members.find(u=>(charOf(u).ability||{}).type==="count").ability?0.06:0.06);
-  if(hasLead) total*=1+hasLead;
-  return Math.round(total);
-}
-/* 被ダメージ倍率（能力反映） */
-function dmgMult(u){
-  const ab=charOf(u).ability||{}; let m=1;
-  if(ab.type==="armor") m-=ab.val;
-  if(ab.type==="self_def") m-=ab.val;
-  if(ab.type==="vanguard") m+=ab.val;
-  if(ab.type==="laststand"&&u.hp<u.maxhp*0.3) m-=ab.val;
-  return Math.max(0.3,m);
-}
+/* 固有能力の効き目。改装で3段ごとに強化（abilityLv）され、1段あたり元の値の25%ずつ伸びる */
+function abilityOf(u){ return charOf(u).ability||{}; }
+function abilityVal(u){ const ab=abilityOf(u); return (ab.val||0)*(1+0.25*(u.abilityLv||0)); }
+/* 戦闘に出た隊員の中で、その固有能力を持つ者の最大値（resource/exp/luck など部隊単位で効くもの） */
+function teamAbility(units,type){ return units.reduce((m,u)=>u.abType===type?Math.max(m,u.abVal):m,0); }
+const RANGE_LONG=75;   // 射程がこれ以上なら2マス先まで撃てる（隣接しないので反撃を受けない）
+function critRate(u){ return Math.min(0.25,(effStat(u,"luck")+effStat(u,"scout"))/1000); } // 運＋索敵で会心
 
 /* ===== タブ ===== */
 function bindTabs(){
@@ -375,6 +353,8 @@ function startClock(){
     tickCommissions();
     tickRepairs();
     applyAutoSupply();
+    if(state.missions.date!==todayKey()){ state.missions={date:todayKey(),prog:{}}; save();
+      if(isActive("mission")) renderMissions(); toast("📋 日付が変わり、任務が更新されました"); }
   };
   upd(); if(tickTimer) clearInterval(tickTimer); tickTimer=setInterval(upd,1000);
 }
@@ -465,7 +445,7 @@ function renderCommissions(){
     }else{
       d.innerHTML=`<div class="cm-head"><b>${ws.nation} ${ws.name}</b><span class="cm-status">待機中</span></div>
         <div class="cm-cost">費用: 🔩${ws.cost.steel} ⚙️${ws.cost.parts}／納期 約${ws.mins}分</div>
-        <div class="cm-pool">製造候補: ${ws.pool.map(id=>DB.characters.find(c=>c.id===id).name).join("・")} ＋武装</div>
+        <div class="cm-pool">製造候補: ${ws.pool.map(id=>DB.characters.find(c=>c.id===id).name).join("・")} ＋装備</div>
         <div class="btnrow"><button onclick="startCommission('${ws.id}')">📝 依頼する</button></div>`;
     }
     l.appendChild(d);
@@ -503,10 +483,9 @@ function completeCommission(wsId){
   if(Math.random()<0.7){ // 戦車
     const u=rollUnit(0.5,ws.pool); state.owned.push(u); seeDex(u.charId);
     toast(`🏭 ${ws.name}より ${charOf(u).name}（★${charOf(u).rarity}）が完成！`);
-  }else{ // 武装
-    const w=WEAPONS[Math.floor(Math.random()*WEAPONS.length)];
-    state.weapons[w.id]=(state.weapons[w.id]||0)+1;
-    toast(`🔧 ${ws.name}より 武装「${w.name}」が完成！`);
+  }else{ // 装備（鋳造と同じ EQUIPMENTS。旧「武装」は所持分だけ商店で使える）
+    const id=rollEquip(0.4); addEquip(id,1);
+    toast(`🔧 ${ws.name}より 装備「${EQUIPMENTS[id].name}」（★${EQUIPMENTS[id].rarity}）が完成！`);
   }
 }
 function fmtTime(ms){ const s=Math.ceil(ms/1000); return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`; }
@@ -851,14 +830,14 @@ const AREA_BATTLE={
 /* 攻撃手段（4種）と スキル */
 const ATTACKS={
   normal:{name:"通常砲撃",icon:"💥",mul:1.0,aoe:1,cd:1,desc:"バランスの取れた砲撃"},
-  ap:{name:"徹甲弾",icon:"🎯",mul:1.6,aoe:1,defPierce:0.5,cd:3,desc:"装甲貫通・単体高威力"},
-  he:{name:"榴弾",icon:"💣",mul:0.8,aoe:3,cd:4,desc:"範囲攻撃・複数体に命中"},
-  mg:{name:"機銃掃射",icon:"🔫",mul:0.45,aoe:2,hits:3,cd:2,desc:"連射・低威力多段"},
+  ap:{name:"徹甲弾",icon:"🎯",mul:1.6,aoe:1,defPierce:0.5,cd:3,desc:"装甲貫通・単体高威力（3ターンに1回）"},
+  he:{name:"榴弾",icon:"💣",mul:0.8,aoe:3,cd:4,desc:"範囲攻撃・周りの敵にも60%（4ターンに1回）"},
+  mg:{name:"機銃掃射",icon:"🔫",mul:0.45,aoe:2,hits:3,cd:2,desc:"3連射・装甲に弱い・反撃を受けない（2ターンに1回）"},
 };
 const SKILLS={
-  charge:{name:"全車突撃",icon:"⚡",cd:14,desc:"全車を前進させ攻撃力UP(数秒)"},
-  repair:{name:"応急修理",icon:"🛠️",cd:18,desc:"全車のHPを回復"},
-  barrage:{name:"集中砲火",icon:"☄️",cd:22,desc:"全敵に大ダメージ"},
+  charge:{name:"全車突撃",icon:"⚡",cd:4,desc:"全車の攻撃力UP(2ターン)"},
+  repair:{name:"応急修理",icon:"🛠️",cd:5,desc:"全車のHPを35%回復"},
+  barrage:{name:"集中砲火",icon:"☄️",cd:6,desc:"全敵に大ダメージ"},
 };
 
 /* ===== 出撃：アッシュアームズ式 横スクロール戦闘 ===== */
@@ -909,14 +888,18 @@ function renderPreBattle(){
   document.getElementById("battlescene").classList.add("hidden");
   renderSortieSquad(); renderSortieRoster();
 }
+/* 小隊枠の耐久バー（50%未満は要修理、修理中はその表示） */
+function slotHp(u){
+  const hpPct=Math.round(u.hp/u.maxhp*100), repairing=u.repairEnd>Date.now();
+  const tag=repairing?`<span class="slot-tag rep">🔧修理中</span>`:hpPct<50?`<span class="slot-tag">要修理</span>`:"";
+  return `<span class="hpbar ${hpPct<50?'dmg':''}"><i style="width:${hpPct}%"></i></span><span class="hptxt">${u.hp}/${u.maxhp}</span>${tag}`;
+}
 function renderSortieSquad(){
   const bar=document.getElementById("sortie-squad"); bar.innerHTML="";
   activeSquad().forEach((uid,i)=>{ const s=document.createElement("div");
     if(uid){ const u=findUnit(uid),c=charOf(u); s.className="slot filled";
-      const hpPct=Math.round(u.hp/u.maxhp*100), dmg=hpPct<40;
       s.innerHTML=`<img class="schibi" src="../assets/chibi/${c.id}.png${ASSET_V}" onerror="this.style.display='none'">
-        <b>${c.name}</b><span>戦闘力 ${unitPower(u)}</span>
-        <span class="hpbar ${dmg?'dmg':''}"><i style="width:${hpPct}%"></i></span><span class="hptxt">${u.hp}/${u.maxhp}</span>`;
+        <b>${c.name}</b><span>戦闘力 ${unitPower(u)}</span>${slotHp(u)}`;
       s.onclick=()=>{ toggleSquad(uid); renderSortieSquad(); renderSortieRoster(); }; }
     else{ s.className="slot"; s.textContent=`第${i+1}枠（空）`; }
     bar.appendChild(s); });
@@ -927,7 +910,7 @@ function renderSortieRoster(){
     const d=document.createElement("div"); d.className="mini-card"+rarityClass(u)+(inS?" selected":"");
     const hpPct=Math.round(u.hp/u.maxhp*100);
     d.innerHTML=`<img src="../assets/chibi/${c.id}.png${ASSET_V}" onerror="this.style.display='none'">
-      <span class="mc-name">${c.name}</span><span class="mc-pow">⚔${unitPower(u)} ❤${hpPct}%</span>`;
+      <span class="mc-name">${c.name}</span><span class="mc-pow">⚔${unitPower(u)} ${u.repairEnd>Date.now()?"🔧修理中":`❤${hpPct}%`}</span>`;
     d.onclick=()=>{ toggleSquad(u.uid); renderSortieSquad(); renderSortieRoster(); };
     g.appendChild(d);
   });
@@ -941,18 +924,27 @@ function startBattle(){
       if(a.restrict.classes&&!a.restrict.classes.includes(c.class)){ toast(`${c.name} は出撃不可（兵科制限）`); return; }
       if(a.restrict.nations&&!a.restrict.nations.includes(c.nation)){ toast(`${c.name} は出撃不可（国籍制限）`); return; }
       if(a.restrict.maxRarity&&c.rarity>a.restrict.maxRarity){ toast(`${c.name} は出撃不可（★制限）`); return; } } }
+  const inRepair=members.filter(u=>u.repairEnd>Date.now());
+  if(inRepair.length){ toast(`修理中の隊員は出撃できません（${inRepair.map(u=>charOf(u).name).join("・")}）`); return; }
   if(state.res.fuel<30||state.res.ammo<30){ toast("燃料・弾薬が不足（各30）"); return; }
   state.res.fuel-=30; state.res.ammo-=30; save(); renderRes();
-  const units=members.slice(0,6).map((u,i)=>{ const c=charOf(u);
-    return {uid:u.uid,name:c.name,cid:c.id,ability:c.ability,_tier:dmgTier(u.hp/u.maxhp),
+  const squad=members.slice(0,SQUAD_SIZE);
+  // 小隊全体に効く固有能力：指揮（leadership）と 数の力（count：5名以上）
+  const lead=squad.reduce((m,u)=>abilityOf(u).type==="leadership"?Math.max(m,abilityVal(u)):m,0);
+  const count=squad.length>=5?squad.reduce((m,u)=>abilityOf(u).type==="count"?Math.max(m,abilityVal(u)):m,0):0;
+  const units=squad.map((u,i)=>{ const c=charOf(u), ab=abilityOf(u), av=abilityVal(u);
+    const selfAtk=(ab.type==="selffire"||ab.type==="self_def")?av:0;
+    return {uid:u.uid,name:c.name,cid:c.id,ability:c.ability,abType:ab.type,abVal:av,_tier:dmgTier(u.hp/u.maxhp),
       hp:u.hp,maxhp:u.maxhp,
-      atk:Math.round(effStat(u,"fire")*(1+(u.level-1)*0.04+(u.remodel||0)*0.08)),
+      atk:Math.round(effStat(u,"fire")*lvMul(u)*(1+lead+count+selfAtk)),
       def:Math.round(effStat(u,"armor")*0.5),
       mv:Math.max(1,Math.min(3,Math.round(effStat(u,"mobility")/35))),
-      rng:1, row:i%ROWS, col:Math.floor(i/ROWS), moved:false, attacked:false, buff:0}; });
-  battle={ area:a, tiles:genTiles(a), units, enemies:[], waveIdx:0, turn:"player", sel:null, fx:[],
-    selAttack:"normal", skillCd:{}, result:null, cutin:null,
+      rng:effStat(u,"range")>=RANGE_LONG?2:1, crit:critRate(u), cd:{},
+      row:i%ROWS, col:Math.floor(i/ROWS), moved:false, attacked:false, buff:0}; });
+  battle={ area:a, tiles:genTiles(a), units, enemies:[], waveIdx:0, turn:"player", turnNo:1, sel:null, fx:[],
+    memberUids:squad.map(u=>u.uid), selAttack:"normal", skillCd:{}, result:null, cutin:null,
     log:[`<div class="log-head">⚔️ ${a.name} 交戦！ マスごとに地形が違う。地形を活かして戦え</div>`] };
+  if(lead||count) battle.log.unshift(`<div class="log-win">📡 小隊の攻撃力 +${Math.round((lead+count)*100)}%（${[lead?"指揮":"",count?"数の力":""].filter(Boolean).join("・")}）</div>`);
   state.records.sorties++; bumpMission("sortie");
   spawnNextWave();
   showBattleScene();
@@ -994,15 +986,22 @@ function spawnNextWave(){
   const w=bd.waves[battle.waveIdx]; battle.waveIdx++;
   const tpl=ENEMY_TYPES[w.type], hpMul=w.hpMul||1;
   for(let i=0;i<w.n;i++){
+    const spot=spawnSpot((i+(w.boss?1:0))%ROWS); if(!spot) break;
     battle.enemies.push({ shape:tpl.shape,name:tpl.name,
       hp:Math.round(tpl.hp*hpMul),maxhp:Math.round(tpl.hp*hpMul),
       atk:Math.round(tpl.atk*(w.boss?1.3:1)),def:tpl.def,
       mv:tpl.spd>=0.7?2:1, rng:tpl.rng?2:1,
-      row:(i+(w.boss?1:0))%ROWS, col:COLS-1-(i%2), color:tpl.color, boss:!!w.boss }); }
+      row:spot.row, col:spot.col, color:tpl.color, boss:!!w.boss }); }
   blog(`敵【${tpl.name}】${w.n}体 出現${w.boss?"（強敵！）":""}`,"log-lose");
   return true;
 }
 
+/* 右端の列から順に、空いているマスを探す（希望の行を先に見る） */
+function spawnSpot(prefRow){
+  for(let c=COLS-1;c>=0;c--) for(let k=0;k<ROWS;k++){
+    const r=(prefRow+k)%ROWS; if(!occupied(r,c)) return {row:r,col:c}; }
+  return null;
+}
 /* ---- マス目ユーティリティ ---- */
 function unitAt(r,c){ return battle.units.find(u=>u.row===r&&u.col===c)||battle.enemies.find(e=>e.row===r&&e.col===c); }
 function occupied(r,c){ return !!unitAt(r,c); }
@@ -1011,7 +1010,10 @@ function dist(a,b){ return Math.abs(a.row-b.row)+Math.abs(a.col-b.col); }
 /* ---- プレイヤー操作（クリック式・自動では動かない） ---- */
 function selectUnit(uid){
   if(battle.turn!=="player"||battle.result) return;
-  battle.sel=(battle.sel===uid)?null:uid; renderBattle();
+  battle.sel=(battle.sel===uid)?null:uid;
+  const u=battle.units.find(x=>x.uid===battle.sel);
+  if(u&&(u.cd[battle.selAttack]||0)>0) battle.selAttack="normal"; // 待ち中の攻撃なら通常砲撃に戻す
+  renderBattleControls(); renderBattle();
 }
 function clickCell(r,c){
   if(battle.turn!=="player"||battle.result||battle.sel==null) return;
@@ -1027,35 +1029,40 @@ function clickEnemy(idx){
   // 選択味方が居ない / 攻撃済 / 射程外 → 攻撃せず敵情報を表示
   if(!u||u.attacked||dist(u,e)>u.rng){
     const wi=document.getElementById("wave-ind");
-    if(wi) wi.innerHTML=`敵：${e.name}／HP ${e.hp}/${e.maxhp}・攻${e.atk}・防${e.def}${e.boss?'・ボス':''}`;
+    if(wi) wi.innerHTML=`敵：${e.name}／HP ${e.hp}/${e.maxhp}・攻${e.atk}・防${e.def}・射程${e.rng}${e.boss?'・ボス':''}`;
     return;
   }
-  doUnitHit(u,e); u.attacked=true;
+  const A=ATTACKS[battle.selAttack]||ATTACKS.normal, wait=u.cd[battle.selAttack]||0;
+  if(wait>0){ toast(`${u.name}の${A.name}は あと${wait}ターン`); return; }
+  doUnitHit(u,e); u.attacked=true; u.cd[battle.selAttack]=A.cd||1;
   battle.enemies=battle.enemies.filter(x=>x.hp>0);
+  if(removeDeadAllies()) return;
   if(battle.enemies.length===0){ if(!spawnNextWave()){ endBattle("win"); return; } }
-  battle.sel=null; renderBattle();
+  battle.sel=null; renderBattleControls(); renderBattle();
 }
 function flankBonus(u,e){
   // 攻撃側を含め、敵に隣接する味方が2体以上なら挟撃
   let adj=0; battle.units.forEach(a=>{ if(dist(a,e)<=1) adj++; });
   return adj>=2;
 }
-function calcUnitDamage(u,e){
+function calcUnitDamage(u,e){ // 会心を除いた見込み（多段は合計）
   const A=ATTACKS[battle.selAttack]||ATTACKS.normal;
-  let dmg=u.atk*A.mul*(u.buff>0?1.3:1);
-  dmg-=e.def*(1-(A.defPierce||0));
-  if(u.ability&&u.ability.type==="bossfire"&&e.boss) dmg*=1+u.ability.val;
+  let atk=u.atk*A.mul*(u.buff>0?1.3:1);
+  if(u.abType==="vanguard"&&battle.turnNo===1) atk*=1+u.abVal; // 先制攻撃：最初のターンだけ
+  if(u.abType==="bossfire"&&e.boss) atk*=1+u.abVal;
+  let dmg=atk-e.def*(1-(A.defPierce||0));
   if(flankBonus(u,e)) dmg*=1.25;            // 挟撃ボーナス +25%
   dmg/=(tileDef(e.row,e.col)||1);           // 対象マスの地形防御
-  return Math.max(2,Math.round(dmg));
+  return Math.max(2,Math.round(dmg))*(A.hits||1);
 }
 function doUnitHit(u,e){
   const A=ATTACKS[battle.selAttack]||ATTACKS.normal;
   const flank=flankBonus(u,e);
-  const dmg=calcUnitDamage(u,e);
+  const crit=Math.random()<(u.crit||0);
+  const dmg=Math.round(calcUnitDamage(u,e)*(crit?1.5:1));
   e.hp-=dmg; e._hit=true; u._lunge=true;
-  pushFx(e,`-${dmg}`,"dmg");
-  blog(`${u.name}の${A.name} → ${e.name}に ${dmg} ダメージ${flank?'（挟撃！）':''}`,"log-win");
+  pushFx(e,`${crit?"会心 ":""}-${dmg}`,"dmg");
+  blog(`${u.name}の${A.name} → ${e.name}に ${dmg} ダメージ${crit?'（会心！）':''}${flank?'（挟撃！）':''}`,"log-win");
   if(A.aoe>1){ battle.enemies.forEach(o=>{ if(o!==e&&Math.abs(o.row-e.row)<=1&&Math.abs(o.col-e.col)<=1){ const d2=Math.round(dmg*0.6); o.hp-=d2; o._hit=true; pushFx(o,`-${d2}`,"dmg"); } }); }
   // 反撃：敵が生存かつ隣接、攻撃種別がmg以外
   if(e.hp>0 && dist(u,e)<=1 && battle.selAttack!=="mg"){
@@ -1067,16 +1074,22 @@ function doUnitHit(u,e){
 function pushFx(t,text,cls){ if(!battle.fx)battle.fx=[]; battle.fx.push({col:t.col,row:t.row,text,cls}); }
 let fxTimer=null;
 function flushFxSoon(){ if(fxTimer)clearTimeout(fxTimer); fxTimer=setTimeout(()=>{ if(battle){ battle.fx=[]; battle.units.concat(battle.enemies).forEach(x=>{x._hit=false;x._lunge=false;}); renderBattle(); } },720); }
-function selectAttack(type){ if(!battle)return; battle.selAttack=type; renderBattleControls(); }
+function selectAttack(type){ if(!battle)return; battle.selAttack=type; renderBattleControls(); renderBattle(); }
 function useSkill(id){
   if(!battle||battle.turn!=="player")return; const S=SKILLS[id];
   if((battle.skillCd[id]||0)>0){ toast(`${S.name} はあと${battle.skillCd[id]}ターン`); return; }
   battle.skillCd[id]=S.cd;
   if(id==="charge"){ battle.units.forEach(u=>u.buff=2); blog(`⚡ 全車突撃！ 攻撃力UP（2ターン）`,"log-win"); }
   else if(id==="repair"){ battle.units.forEach(u=>u.hp=Math.min(u.maxhp,u.hp+Math.round(u.maxhp*0.35))); blog(`🛠️ 応急修理！ HP回復`,"log-win"); }
-  else if(id==="barrage"){ battle.enemies.forEach(e=>e.hp-=Math.round(e.maxhp*0.5+40)); battle.enemies=battle.enemies.filter(e=>e.hp>0); blog(`☄️ 集中砲火！`,"log-win");
+  else if(id==="barrage"){ battle.enemies.forEach(e=>{ e.hp-=Math.round(e.maxhp*0.5+40); e._hit=true; }); battle.enemies=battle.enemies.filter(e=>e.hp>0); blog(`☄️ 集中砲火！`,"log-win");
     if(battle.enemies.length===0&&!spawnNextWave()){ endBattle("win"); return; } }
   toast(`${S.icon} ${S.name}`); renderBattleControls(); renderBattle();
+}
+/* 耐久0になった味方を取り除く。全滅なら敗北にして true を返す */
+function removeDeadAllies(){
+  battle.units=battle.units.filter(u=>{ if(u.hp<=0){ u.hp=0; blog(`${u.name} 撃破…`,"log-lose"); return false; } return true; });
+  if(battle.units.length===0){ endBattle("lose"); return true; }
+  return false;
 }
 function endPlayerTurn(){
   if(!battle||battle.turn!=="player"||battle.result) return;
@@ -1086,6 +1099,7 @@ function endPlayerTurn(){
 function enemyTurn(){
   if(!battle||battle.result) return;
   battle.enemies.forEach(e=>{
+    if(battle.result) return;
     let tgt=null,bd=99; battle.units.forEach(u=>{ const d=dist(e,u); if(d<bd||(d===bd&&tgt&&u.hp<tgt.hp)){bd=d;tgt=u;} });
     if(!tgt) return;
     let steps=e.mv;
@@ -1097,13 +1111,13 @@ function enemyTurn(){
       else break;
       e.row=nr; e.col=nc; steps--;
     }
-    if(dist(e,tgt)<=e.rng) doEnemyHit(e,tgt);
+    if(dist(e,tgt)<=e.rng){ doEnemyHit(e,tgt); removeDeadAllies(); } // 倒した味方をもう狙わない
   });
-  battle.units=battle.units.filter(u=>{ if(u.hp<=0){ blog(`${u.name} 撃破…`,"log-lose"); return false; } return true; });
+  if(battle.result) return;
   for(const k in battle.skillCd) if(battle.skillCd[k]>0) battle.skillCd[k]--;
-  battle.units.forEach(u=>{ u.moved=false; u.attacked=false; if(u.buff>0)u.buff--; });
-  battle.turn="player";
-  if(battle.units.length===0){ endBattle("lose"); return; }
+  battle.units.forEach(u=>{ u.moved=false; u.attacked=false; if(u.buff>0)u.buff--;
+    for(const k in u.cd) if(u.cd[k]>0) u.cd[k]--; });
+  battle.turn="player"; battle.turnNo++;
   renderBattleControls(); renderBattle(); flushFxSoon();
   if(battle.cutin){ showCutin(battle.cutin); battle.cutin=null; }
 }
@@ -1121,8 +1135,9 @@ function showCutin(info){
 }
 function doEnemyHit(e,u){
   let dmg=e.atk - u.def*0.6;
-  if(u.ability&&(u.ability.type==="armor"||u.ability.type==="self_def")) dmg*=1-u.ability.val;
-  if(u.ability&&u.ability.type==="laststand"&&u.hp<u.maxhp*0.3) dmg*=1-u.ability.val;
+  if(u.abType==="armor"||u.abType==="self_def") dmg*=1-u.abVal;
+  if(u.abType==="laststand"&&u.hp<u.maxhp*0.3) dmg*=1-u.abVal;
+  if(u.abType==="vanguard") dmg*=1.1; // 先陣は被ダメージ+10%
   dmg*=tileDef(u.row,u.col); // マス地形の防御
   dmg=Math.max(1,Math.round(dmg)); u.hp-=dmg; u._hit=true;
   pushFx(u,`-${dmg}`,"dmg-ally");
@@ -1138,36 +1153,40 @@ function endBattle(result){
   let html;
   // 戦果サマリー集約（既存処理の値を流用するだけ、新たに資源は足さない）
   const summary={res:{},drops:[],equips:[],exp:0,firstClear:false};
+  const fought=battle.memberUids.map(findUnit).filter(Boolean);
+  // 出撃した全員（撃破された者も）の固有能力。補給・経験・強運は部隊単位で一番強い者の値
+  const all=fought.map(u=>({abType:abilityOf(u).type,abVal:abilityVal(u)}));
+  syncBattleHp(); // 撃破された隊員は耐久1、生き残りは戦闘後の耐久（勝っても負けても）
   if(result==="win"){
     html=`<div class="log-head">🏆 勝利！ 敵を殲滅した</div>`;
-    const foe=AREA_BATTLE[a.id].eBaseHP*0.2;
-    const g={fuel:Math.round(foe*0.18),ammo:Math.round(foe*0.2),steel:Math.round(foe*0.15),parts:Math.round(foe*0.12),gold:Math.round(foe*0.08)};
+    const foe=AREA_BATTLE[a.id].eBaseHP*0.2, resB=1+teamAbility(all,"resource");
+    const g={fuel:Math.round(foe*0.18*resB),ammo:Math.round(foe*0.2*resB),steel:Math.round(foe*0.15*resB),parts:Math.round(foe*0.12*resB),gold:Math.round(foe*0.08*resB)};
     for(const k in g) state.res[k]=(state.res[k]||0)+g[k];
     summary.res=Object.assign({},g);
-    html+=`<div class="log-win">獲得 ⛽${g.fuel} 💥${g.ammo} 🔩${g.steel} ⚙️${g.parts} 💴${g.gold}</div>`;
-    squadMembers().forEach(u=>gainExp(u,200)); gainCmdExp(120); summary.exp=200;
+    html+=`<div class="log-win">獲得 ⛽${g.fuel} 💥${g.ammo} 🔩${g.steel} ⚙️${g.parts} 💴${g.gold}${resB>1?`（補給上手 +${Math.round((resB-1)*100)}%）`:""}</div>`;
+    const ex=Math.round(200*(1+teamAbility(all,"exp")));
+    fought.forEach(u=>gainExp(u,ex)); gainCmdExp(120); summary.exp=ex;
     state.records.wins++; bumpMission("win"); bumpMission("clear");
     if(!state.clearedAreas) state.clearedAreas=[];
     const first=!state.clearedAreas.includes(a.id);
     if(first){ state.clearedAreas.push(a.id); state.res.gold+=150; addItem("remodel",1);
       summary.firstClear=true; summary.res.gold=(summary.res.gold||0)+150;
       html+=`<div class="log-win">🎖 戦域【${a.name}】初攻略！ 💴150 ＋ 🔧改修資材</div>`; }
-    if(Math.random()<0.9){ const u=rollUnit(0.6); state.owned.push(u); seeDex(u.charId); state.records.drops++;
+    if(Math.random()<Math.min(1,0.9+teamAbility(all,"luck"))){ const u=rollUnit(0.6); state.owned.push(u); seeDex(u.charId); state.records.drops++;
       summary.drops.push(`${charOf(u).name}（★${charOf(u).rarity}）`);
       html+=`<div class="log-win">🎁 ${charOf(u).name}（★${charOf(u).rarity}）がドロップ！</div>`; }
     // 装備ドロップ（ボスは高確率＆高レア）
     const isBossWin = battle.waveIdx >= (AREA_BATTLE[a.id].waves.length); // 全wave消化=ボス撃破済み
-    if(Math.random() < (isBossWin?0.8:0.45)){
+    if(Math.random() < (isBossWin?0.8:0.45)+teamAbility(all,"luck")){
       const eid = rollEquip(isBossWin?0.6:0.3);
       addEquip(eid,1);
       summary.equips.push(`${EQUIPMENTS[eid].name}（★${EQUIPMENTS[eid].rarity}）`);
       html += `<div class="log-win">⚙️ 装備「${EQUIPMENTS[eid].name}」（★${EQUIPMENTS[eid].rarity}）を入手！</div>`;
     }
-    battle.units.forEach(pu=>{ const u=findUnit(pu.uid); if(u) u.hp=Math.max(1,Math.round(pu.hp)); });
     toast(`🏆 ${a.name} 制圧！`);
   }else{
     html=`<div class="log-head">💥 敗北… 部隊が全滅した</div>`;
-    squadMembers().forEach(u=>{ u.hp=1; gainExp(u,30); }); gainCmdExp(20); state.records.losses++;
+    fought.forEach(u=>{ u.hp=1; gainExp(u,30); }); gainCmdExp(20); state.records.losses++;
     summary.exp=30;
     toast("💥 敗北…");
   }
@@ -1201,8 +1220,8 @@ function battleResultCard(result,a,s){
 /* 戦闘中のダメージを隊員本体へ反映（戦死=hp1）。撤退でも回復させない */
 function syncBattleHp(){
   if(!battle) return;
-  squadMembers().forEach(u=>{ const pu=battle.units.find(x=>x.uid===u.uid);
-    u.hp = pu ? Math.max(1,Math.round(pu.hp)) : 1; });
+  battle.memberUids.map(findUnit).filter(Boolean).forEach(u=>{ const pu=battle.units.find(x=>x.uid===u.uid);
+    u.hp = pu ? Math.max(1,Math.min(u.maxhp,Math.round(pu.hp))) : 1; });
   save();
 }
 function afterBattle(){ document.getElementById("battle-result").classList.add("hidden"); battle=null; renderPreBattle(); }
@@ -1211,7 +1230,9 @@ function gainExp(u,a){ u.exp+=a; while(u.exp>=u.level*100){ u.exp-=u.level*100; 
 /* ---- 描画 ---- */
 function renderBattleControls(){
   const ab=document.getElementById("bc-attacks");
-  ab.innerHTML=Object.entries(ATTACKS).map(([id,A])=>`<button class="atk-btn${battle.selAttack===id?' sel':''}" onclick="selectAttack('${id}')" title="${A.desc}">${A.icon}${A.name}</button>`).join("");
+  const su=battle.sel!=null?battle.units.find(u=>u.uid===battle.sel):null; // 待ちは選んだ隊員ごと
+  ab.innerHTML=Object.entries(ATTACKS).map(([id,A])=>{ const w=su?(su.cd[id]||0):0;
+    return `<button class="atk-btn${battle.selAttack===id?' sel':''}" ${w>0?"disabled":""} onclick="selectAttack('${id}')" title="${A.desc}">${A.icon}${A.name}${w>0?` (${w})`:""}</button>`; }).join("");
   const sb=document.getElementById("bc-skills");
   sb.innerHTML=Object.entries(SKILLS).map(([id,S])=>{ const cd=battle.skillCd[id]||0;
     return `<button class="skill-btn" ${cd>0?"disabled":""} onclick="useSkill('${id}')" title="${S.desc}">${S.icon}${S.name}${cd>0?` (${cd})`:""}</button>`; }).join("");
@@ -1223,10 +1244,10 @@ function tileTop(row){ return 8+row*RH()+HEXH()/2; }
 function renderBattle(){
   if(!battle) return;
   const sel=battle.sel!=null?battle.units.find(u=>u.uid===battle.sel):null;
-  const ti=document.getElementById("turn-ind"); if(ti) ti.textContent=battle.turn==="player"?"🟢 自軍ターン":"🔴 敵ターン（待機）";
+  const ti=document.getElementById("turn-ind"); if(ti) ti.textContent=(battle.turn==="player"?"🟢 自軍ターン":"🔴 敵ターン（待機）")+` ${battle.turnNo}`;
   const wi=document.getElementById("wave-ind"); if(wi){ const bd=AREA_BATTLE[battle.area.id];
     wi.innerHTML= sel
-      ? `<b style="color:var(--gold2)">選択: ${sel.name}</b>　${sel.moved?'移動済':'青マスで移動'}／${sel.attacked?'攻撃済':'⚔敵で攻撃'}`
+      ? `<b style="color:var(--gold2)">選択: ${sel.name}</b>（射程${sel.rng}・会心${Math.round(sel.crit*100)}%）　${sel.moved?'移動済':'青マスで移動'}／${sel.attacked?'攻撃済':'⚔敵で攻撃'}`
       : `WAVE ${Math.min(battle.waveIdx,bd.waves.length)}/${bd.waves.length}・残敵${battle.enemies.length}・部隊${battle.units.length}　味方をタップ`; }
   // 六角マス（千鳥配置）
   const g=document.getElementById("grid-bg"); let gh="";
@@ -1421,7 +1442,7 @@ function renderDex(){
         <div class="cname">${c.name}</div><div class="cbase">${c.nation} ${c.base}</div>
         <div class="meta"><span class="cclass">${c.class}</span><span class="stars">${"★".repeat(c.rarity)}</span></div>
         <div class="dex-tap">📜 タップで史実・立ち絵</div>`;
-      d.onclick=()=>{ const tmp=mkUnit(c.id); tmp.uid=-1; state.owned.push(tmp); openDetail(-1); state.owned.pop(); };
+      d.onclick=()=>{ const nu=state.nextUid, tmp=mkUnit(c.id); state.nextUid=nu; tmp.uid=-1; state.owned.push(tmp); openDetail(-1); state.owned.pop(); };
     }else{
       d.innerHTML=`<div class="portrait locked">❓</div><div class="cname">？？？</div><div class="cbase">未発見</div>`;
     }
@@ -1477,7 +1498,7 @@ function cardInner(u){ const c=charOf(u),chibi=`../assets/chibi/${c.id}.png${ASS
     <div class="portrait"><span class="phicon">${CLASS_ICON[c.class]||"⭐"}</span><img class="chibi" src="${chibi}" alt="" onerror="this.style.display='none'"></div>
     <div class="cname">${c.name}</div><div class="cbase">${c.nation||""} ${c.base}</div>
     <div class="meta"><span class="cclass">${c.class}</span><span class="stars">${"★".repeat(c.rarity)}</span></div>
-    <div class="stat">火${c.fire+(u.bonus.fire||0)} 装${c.armor+(u.bonus.armor||0)} 機${c.mobility+(u.bonus.mobility||0)}<br>戦闘力 <b>${unitPower(u)}</b> ・ 耐久${u.hp}/${u.maxhp}</div>
+    <div class="stat">火${effStat(u,"fire")} 装${effStat(u,"armor")} 機${effStat(u,"mobility")}<br>戦闘力 <b>${unitPower(u)}</b> ・ 耐久${u.hp}/${u.maxhp}</div>
     ${hpbar}`;
 }
 let dragUid=null;
@@ -1505,7 +1526,7 @@ function renderSquad(){
   const bar=document.getElementById("squad-bar"); if(!bar) return; bar.innerHTML="";
   activeSquad().forEach((uid,i)=>{ const s=document.createElement("div"); s.dataset.slot=i;
     if(uid){ const u=findUnit(uid),c=charOf(u); s.className="slot filled";
-      s.innerHTML=`<img class="schibi" src="../assets/chibi/${c.id}.png${ASSET_V}" onerror="this.style.display='none'"><b>${c.name}</b><span>Lv.${u.level}・戦闘力 ${unitPower(u)}</span><span class="slot-x">✕</span>`;
+      s.innerHTML=`<img class="schibi" src="../assets/chibi/${c.id}.png${ASSET_V}" onerror="this.style.display='none'"><b>${c.name}</b><span>Lv.${u.level}・戦闘力 ${unitPower(u)}</span>${slotHp(u)}<span class="slot-x">✕</span>`;
       s.querySelector(".slot-x").onclick=(e)=>{ e.stopPropagation(); toggleSquad(uid); };
       s.onclick=()=>openDetail(uid);
       s.draggable=true;
