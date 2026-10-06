@@ -27,9 +27,15 @@ const TERRAIN={
   burning:{name:"炎上中",cost:2,def:0.90,g:["#7a4a26","#4a2a14"],note:"燃えている。止まると炎上"},
   burnt:{name:"焼け野原",cost:1,def:1.00,g:["#5f4d3c","#3a2f25"],note:"焼け落ちた森"},
   crater:{name:"砲撃痕",cost:1.5,def:0.90,g:["#8a8f55","#5c6233"],note:"穴が身を隠す"},
+  hill:{name:"丘陵",cost:2,def:0.85,g:["#9fbf6a","#6a8a3c"],note:"なだらかな高み。少し堅い"},
+  town:{name:"集落",cost:1.5,def:0.82,g:["#b7c08f","#8a935f"],note:"民家が並ぶ。壊れると瓦礫"},
+  fort:{name:"陣地",cost:2,def:0.62,g:["#a8915e","#76623a"],note:"土嚢と塹壕。とても堅い"},
+  field:{name:"畑",cost:1.5,def:0.95,g:["#c9c56a","#9a9640"],note:"畝で足が取られる"},
+  swamp:{name:"湿地",cost:2.5,def:1.10,g:["#6f7f4f","#46542e"],note:"ぬかるみ。遅く無防備"},
+  rail:{name:"線路",cost:1,def:1.05,g:["#9a9486","#6d6759"],note:"砂利の線路。隠れられない"},
 };
 /* 爆発・撃破でマスがこう変わる */
-const SCAR={forest:"burning",snowforest:"burning",city:"rubble",plain:"crater",road:"crater",snow:"crater",sand:"crater",bridge:"ford",burnt:"crater"};
+const SCAR={forest:"burning",snowforest:"burning",city:"rubble",town:"rubble",plain:"crater",road:"crater",snow:"crater",sand:"crater",bridge:"ford",burnt:"crater",field:"crater",fort:"crater",rail:"crater",hill:"crater"};
 
 /* ===== 強化・弱体 ===== */
 const STATUS={
@@ -65,40 +71,83 @@ const ENEMY_TYPES={
   heli:{name:"敵攻撃ヘリ",kind:"air",hp:70,atk:26,def:10,mv:5,rng:2,weapon:"normal"},
 };
 
-/* ===== 戦域 ===== */
+/* ===== 戦域と段階（艦これの 1-1・1-2・1-3 にあたる） =====
+   各段階の地図は手で描いた 11列×9行（左2列＝味方の配置、右3列＝敵の出現）。
+   記号: . 平地  r 道路  f 森林  M 山岳  h 丘陵  c 市街  t 集落  w 河川  b 橋  o 浅瀬  s 雪原  S 雪の森
+         d 砂浜  x 瓦礫  q 砲撃痕  k 陣地  p 畑  m 湿地  = 線路 */
+const TILE_CODE={".":"plain",r:"road",f:"forest",M:"mountain",h:"hill",c:"city",t:"town",w:"water",b:"bridge",o:"ford",s:"snow",S:"snowforest",
+  d:"sand",x:"rubble",q:"crater",k:"fort",p:"field",m:"swamp","=":"rail"};
 const AREAS=[
-  { id:"hokkaido", name:"戦域I 北部方面隊：北海道大演習場", desc:"機甲科の聖地。雪原と森の機動戦。", terrain:"snow", restrict:null, power:300 },
-  { id:"fuji", name:"戦域II 東部方面隊：富士総合火力演習場", desc:"総火演の舞台。山を挟んだ火力戦。", terrain:"mountain", restrict:{note:"中・重戦車の活躍が見込まれる戦域"}, power:600 },
-  { id:"kyushu", name:"戦域III 西部方面隊：九州防衛線", desc:"離島防衛の最前線。砂浜と市街の戦い。", terrain:"sand", restrict:null, power:900 },
-  { id:"city", name:"戦域IV 市街戦：包囲下の工業都市", desc:"瓦礫と化す街路。近接の死闘。重装甲が物を言う。", terrain:"city", restrict:null, power:1100 },
-  { id:"river", name:"戦域V 渡河作戦：大河の防衛線", desc:"橋と浅瀬を押さえろ。対岸から砲火が来る。", terrain:"water", restrict:null, power:1300 },
+  { id:"hokkaido", name:"戦域I 北部方面隊：北海道大演習場", short:"北海道", desc:"機甲科の聖地。雪原と森の機動戦。", terrain:"snow", restrict:null, power:300, eBaseHP:1400 },
+  { id:"fuji", name:"戦域II 東部方面隊：富士総合火力演習場", short:"富士", desc:"総火演の舞台。山を挟んだ火力戦。", terrain:"mountain", restrict:{note:"中・重戦車の活躍が見込まれる戦域"}, power:600, eBaseHP:1900 },
+  { id:"kyushu", name:"戦域III 西部方面隊：九州防衛線", short:"九州", desc:"離島防衛の最前線。上陸から港町、司令部へ。", terrain:"sand", restrict:null, power:900, eBaseHP:2600 },
+  { id:"city", name:"戦域IV 市街戦：包囲下の工業都市", short:"工業都市", desc:"郊外から工業地帯、中央駅へ。近接の死闘。", terrain:"city", restrict:null, power:1100, eBaseHP:3000 },
+  { id:"river", name:"戦域V 渡河作戦：大河の防衛線", short:"大河", desc:"湿地を抜け、大橋を渡り、対岸の砲兵陣地を叩け。", terrain:"water", restrict:null, power:1300, eBaseHP:2800 },
 ];
-/* 波（wave）：前の波が残り1体以下になると次が来る。最後の波にボス。atk=敵の攻撃倍率 */
-const AREA_BATTLE={
-  hokkaido:{ eBaseHP:1400, atk:0.7, waves:[
-    [{t:"infantry",n:3},{t:"light",n:1}],
-    [{t:"light",n:2},{t:"infantry",n:2}],
-    [{t:"heavy",n:1,boss:true,hp:1.8},{t:"infantry",n:2}] ] },
-  fuji:{ eBaseHP:1900, atk:0.85, waves:[
-    [{t:"light",n:2},{t:"infantry",n:2}],
-    [{t:"spg",n:1},{t:"heavy",n:1},{t:"infantry",n:2}],
-    [{t:"heavy",n:1,boss:true,hp:2.2},{t:"spg",n:1},{t:"light",n:1}] ] },
-  kyushu:{ eBaseHP:2600, atk:1.0, waves:[
-    [{t:"light",n:3},{t:"atgun",n:1}],
-    [{t:"heli",n:2},{t:"infantry",n:3}],
-    [{t:"spg",n:2},{t:"heavy",n:1}],
-    [{t:"heavy",n:1,boss:true,hp:2.6},{t:"heli",n:1},{t:"atgun",n:1}] ] },
-  city:{ eBaseHP:3000, atk:1.45, waves:[
-    [{t:"infantry",n:3},{t:"atgun",n:2}],
-    [{t:"heavy",n:2},{t:"infantry",n:2}],
-    [{t:"spg",n:1},{t:"heli",n:1},{t:"light",n:2}],
-    [{t:"heavy",n:1,boss:true,hp:3.0},{t:"atgun",n:2}] ] },
-  river:{ eBaseHP:2800, atk:1.6, waves:[
-    [{t:"spg",n:2},{t:"infantry",n:2}],
-    [{t:"heli",n:2},{t:"light",n:2}],
-    [{t:"heavy",n:2},{t:"atgun",n:1}],
-    [{t:"spg",n:1,boss:true,hp:3.2},{t:"heavy",n:1},{t:"heli",n:1}] ] },
+const W=(t,n,o)=>Object.assign({t,n},o||{});
+const STAGES={
+  hokkaido:[
+    { name:"雪原の偵察線", desc:"見通しの良い雪原。道路を使って素早く寄せろ。", atk:0.6, x:28,y:62,
+      layout:["sssSSssssss","ssssSsshsss","rrrrrrrrrrr","sssSssssSSs","ssSSsshssss","sssssSsssss","sshssssSSss","sSSsssssshs","sssssSSssss"],
+      waves:[[W("infantry",2),W("light",1)],[W("infantry",2),W("light",1,{boss:true,hp:1.3})]] },
+    { name:"凍った渡渉点", desc:"川を渡るのは橋か浅瀬だけ。渡る間は無防備になる。", atk:0.65, x:52,y:36,
+      layout:["sSssswssSSs","ssSssossssh","sssSswsSsss","sSssswhssss","rrrrrbrrrrr","sssSswssSss","shsSswsSSss","sssssosssSs","sSSsswsssss"],
+      waves:[[W("infantry",3),W("light",1)],[W("light",2),W("infantry",1)],[W("light",1,{boss:true,hp:1.5}),W("infantry",2)]] },
+    { name:"矢臼別の高地", desc:"高地の陣地に敵の重戦車。山は射程+1、陣地はとても堅い。", atk:0.7, x:80,y:56, boss:true,
+      layout:["ssSShMhSsss","sssShMMhsks","sSsshhMhssk","ssssshhskss","rrrrrrrrrrr","sSssshhskss","ssSshMhhsks","sssShMMhsss","sSssshhSSss"],
+      waves:[[W("infantry",3),W("light",1)],[W("light",2),W("infantry",2)],[W("heavy",1,{boss:true,hp:1.8}),W("infantry",2)]] },
+  ],
+  fuji:[
+    { name:"演習開始線", desc:"畑と森の帯が続く。集落を盾に前進せよ。", atk:0.8, x:26,y:66,
+      layout:["pp..ff.pp..","pp..f..ppff","....ff....f","rrrrrrrrrrr","..tt..ff...",".ttp..f..pp","..pp..ff.pp","ff..h...ff.","fff.hh..ff."],
+      waves:[[W("light",2),W("infantry",2)],[W("infantry",2),W("atgun",1)],[W("light",1,{boss:true,hp:1.5}),W("infantry",1)]] },
+    { name:"北富士射場", desc:"砲撃の跡だらけの射場。穴に隠れて撃ち合え。", atk:0.85, x:54,y:70,
+      layout:["ff....h..kf","f..q...q.k.","..q..q....k","....hh.q...","rr.q.hh..rr","...q..q....",".q....q.qk.","f..q.....k.","ff...hh..kf"],
+      waves:[[W("light",2),W("infantry",2)],[W("spg",1),W("heavy",1),W("infantry",2)],[W("heavy",1,{boss:true,hp:1.6}),W("infantry",1)]] },
+    { name:"富士山麓", desc:"霊峰の裾野。山を回り込むか、越えて撃ち下ろすか。", atk:0.9, x:78,y:42, boss:true,
+      layout:["ffhMMMMMhff","fhhMMMMMhhf","f.hhMMMhh.k","..fhhMhhf.k","...ffhff...","rrrrrrrrrrr","pp.tt...ppk","ppptt.ff.pk","ff..ffff..f"],
+      waves:[[W("light",2),W("infantry",2)],[W("spg",1),W("heavy",1),W("infantry",2)],[W("heavy",1,{boss:true,hp:2.2}),W("spg",1),W("light",1)]] },
+  ],
+  kyushu:[
+    { name:"上陸海岸", desc:"砂浜から上陸。敵の対戦車砲に注意。", atk:0.9, x:22,y:60,
+      layout:["wwwdd..ffff","wddd..f.ff.","ddd...tt...","dd.rrrrrrrr","dd..f.t...k","ddd..ff..kk","wddd...hh..","wwdd..fhh..","wwwddd....."],
+      waves:[[W("light",3),W("atgun",1)],[W("infantry",3),W("light",1,{boss:true,hp:1.5})]] },
+    { name:"港町", desc:"運河の走る港町。橋を押さえ、ヘリに備えよ。", atk:1.0, x:48,y:34,
+      layout:["..tt.ff.tt.",".ttt..ttct.","rrrrrrrrrrr",".tc.cc.ctt.",".tc.wwcc.t.","..t.bbc.tt.",".tt.ww.tt..","dddwwwwddd.","wwwwwwwwwww"],
+      waves:[[W("light",2),W("atgun",1)],[W("heli",2),W("infantry",2)],[W("heavy",1,{boss:true,hp:1.8}),W("infantry",2)]] },
+    { name:"防衛線司令部", desc:"陣地の列の奥に敵司令部。榴弾で陣地を崩せ。", atk:1.05, x:80,y:56, boss:true,
+      layout:["..ff.hk.cc.",".f..hhk.ct.","...f..k..c.","rrrrrrrrrrr","..t...kxcc.",".tt..hk.cck","...f.hk..t.","dd..ff.k.t.","wwdd.f..k.."],
+      waves:[[W("light",3),W("atgun",1)],[W("heli",2),W("infantry",3)],[W("spg",2),W("heavy",1)],[W("heavy",1,{boss:true,hp:2.6}),W("heli",1),W("atgun",1)]] },
+  ],
+  city:[
+    { name:"郊外", desc:"線路の走る郊外。集落と畑が入り組む。", atk:1.2, x:24,y:40,
+      layout:["pp.tt..tt..","p.ttt.f.tt.","===========",".t..pp.t...","rrrrrrrrrrr","..tt..pp.t.",".ttf..p.tt.","pp..ff..t..","ppp.f..tt.."],
+      waves:[[W("infantry",3),W("atgun",1)],[W("light",2),W("infantry",2)],[W("heavy",1,{boss:true,hp:1.6}),W("infantry",1)]] },
+    { name:"工業地帯", desc:"工場と操車場。瓦礫が最良の盾になる。", atk:1.35, x:52,y:66,
+      layout:["cc.cc==.cc.","c..xc==.c.c",".cc..==.xcc","rrrrr==rrrr","x.cc.==.cc.",".c.x.==..cx","rrrrr==rrrr","cc..c==.c..",".cx.c==..cc"],
+      waves:[[W("infantry",3),W("atgun",2)],[W("heavy",2),W("infantry",2)],[W("spg",1),W("heli",1),W("light",1,{boss:true,hp:2})]] },
+    { name:"中央駅", desc:"駅は要塞と化した。陣地に籠もる敵主力を撃て。", atk:1.45, x:80,y:36, boss:true,
+      layout:["ccrcccrcccc","ccrcxcrc.kc","rrrrrrrrrrr","cxrcc==ckkc","ccr==k==.kc","ccrcc==ckkc","rrrrrrrrrrr","ccrc.crcxcc","ccrccxrcccc"],
+      waves:[[W("infantry",3),W("atgun",2)],[W("heavy",2),W("infantry",2)],[W("spg",1),W("heli",1),W("light",2)],[W("heavy",1,{boss:true,hp:3.0}),W("atgun",2)]] },
+  ],
+  river:[
+    { name:"湿地帯", desc:"ぬかるみと小川。足を取られる所で撃たれるな。", atk:1.4, x:22,y:58,
+      layout:["ffmm..ffmmf","f.mmw.f.mm.","..m.w.mm...","ff..o..m.ff","rrrrbrrrrrr","..mmw..ff..","f.m.w.mm.f.","ffmmo.fmm..","fff.w..ffmf"],
+      waves:[[W("infantry",3),W("light",1)],[W("spg",1),W("infantry",2)],[W("light",2),W("heli",1,{boss:true,hp:1.5})]] },
+    { name:"大橋", desc:"渡れるのは大橋と上流の浅瀬だけ。対岸から狙われる。", atk:1.5, x:50,y:38,
+      layout:["ff..ooo..ff","f...www..f.","..t.www.t..",".tt.www.tt.","rrrrbbbrrrr",".tt.www.tt.","..f.www.f..","f...www...f","ff.mwwwm.ff"],
+      waves:[[W("spg",2),W("infantry",2)],[W("heli",2),W("light",2)],[W("heavy",1,{boss:true,hp:2.2}),W("atgun",1)]] },
+    { name:"対岸の砲兵陣地", desc:"川を越えた先、高地の砲兵陣地が最後の砦。", atk:1.6, x:80,y:62, boss:true,
+      layout:["f..ww.hhMkk","..fww.hMhk.","rrrbbrrrrrr",".f.ww.hhk.k","...ww..hkkM","f..ww.h.k..","..foo.hhk..",".ffww..h.kk","ff.ww.hhMk."],
+      waves:[[W("spg",2),W("infantry",2)],[W("heli",2),W("light",2)],[W("heavy",2),W("atgun",1)],[W("spg",1,{boss:true,hp:3.2}),W("heavy",1),W("heli",1)]] },
+  ],
 };
+/* 進み具合（state.clearedStages に "hokkaido-1" の形で入る） */
+function stageKey(a,i){ return a+"-"+(i+1); }
+function stageCleared(a,i){ return (state.clearedStages||[]).includes(stageKey(a,i)); }
+function stageOpen(a,i){ return i===0||stageCleared(a,i-1); }
+function areaOpen(idx){ return idx===0||(state.clearedAreas||[]).includes(AREAS[idx-1].id); }
+function stagePower(a,i){ return Math.round(AREAS.find(x=>x.id===a).power*[0.6,0.8,1][i]); }
 
 const ALLY_DEF=0.7;   // 味方の装甲→防御の換算（調整用）
 let battle=null;      // 進行中の戦闘
@@ -114,36 +163,12 @@ const NB_EVEN=[[1,0],[0,-1],[-1,-1],[-1,0],[-1,1],[0,1]], NB_ODD=[[1,0],[1,-1],[
 function neighbors(c,r){ return ((r&1)?NB_ODD:NB_EVEN).map(([dc,dr])=>({c:c+dc,r:r+dr})).filter(p=>inMap(p.c,p.r)); }
 function key(c,r){ return c+","+r; }
 
-/* ===== 地図を作る（戦域ごとの癖。左2列＝味方の配置、右2列＝敵の出現は必ず通れる） ===== */
-function rng01(seed){ let a=seed>>>0; return ()=>{ a=(a+0x6D2B79F5)>>>0; let t=a; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return ((t^(t>>>14))>>>0)/4294967296; }; }
-function genMap(areaId, seed){
-  const R=rng01(seed), T=[];
-  for(let r=0;r<MAP_ROWS;r++){ const row=[]; for(let c=0;c<MAP_COLS;c++) row.push({t:"plain",fire:0,smoke:0,wreck:false}); T.push(row); }
-  const set=(c,r,t)=>{ if(inMap(c,r)) T[r][c].t=t; };
-  const blob=(t,n,rad,minC=2,maxC=MAP_COLS-3)=>{ for(let i=0;i<n;i++){ const cc=minC+Math.floor(R()*(maxC-minC+1)), cr=Math.floor(R()*MAP_ROWS);
-    for(let r=0;r<MAP_ROWS;r++) for(let c=0;c<MAP_COLS;c++) if(hexDist({c,r},{c:cc,r:cr})<=rad && R()<0.85) set(c,r,t); } };
-  const roadRow=(r)=>{ for(let c=0;c<MAP_COLS;c++) set(c,r,"road"); };
-  if(areaId==="hokkaido"){
-    for(let r=0;r<MAP_ROWS;r++) for(let c=0;c<MAP_COLS;c++) set(c,r,R()<0.6?"snow":"plain");
-    blob("snowforest",4,1); blob("mountain",1,1,4,6); roadRow(2+Math.floor(R()*5));
-  }else if(areaId==="fuji"){
-    blob("forest",3,1); for(let r=0;r<MAP_ROWS;r++) for(let c=4;c<=6;c++) if(hexDist({c,r},{c:5,r:2})<=2) set(c,r,"mountain");
-    roadRow(6+Math.floor(R()*2)); blob("forest",1,1);
-  }else if(areaId==="kyushu"){
-    for(let c=0;c<MAP_COLS;c++){ set(c,MAP_ROWS-1,"water"); set(c,MAP_ROWS-2,"sand"); }
-    blob("city",2,1,3,7); roadRow(3); blob("forest",2,0);
-  }else if(areaId==="city"){
-    for(let r=0;r<MAP_ROWS;r++) for(let c=0;c<MAP_COLS;c++) set(c,r,R()<0.62?"city":"plain");
-    roadRow(2); roadRow(6); for(let r=0;r<MAP_ROWS;r++) set(5,r,"road"); blob("rubble",3,0);
-  }else if(areaId==="river"){
-    blob("forest",4,1); const fords=[Math.floor(R()*3)];
-    for(let r=0;r<MAP_ROWS;r++){ set(5,r,"water"); }
-    [1,4,7].forEach((r,i)=>{ set(5,r,i===1?"bridge":"ford"); for(let c=0;c<MAP_COLS;c++) if(i===1) set(c,r,c===5?"bridge":"road"); });
-    void fords;
-  }
-  // 配置と出現の列は通れる地形にする
-  for(let r=0;r<MAP_ROWS;r++) for(const c of [0,1,MAP_COLS-2,MAP_COLS-1]){ const t=T[r][c].t; if(TERRAIN[t].cost>=3) T[r][c].t=areaId==="hokkaido"?"snow":areaId==="kyushu"&&r>=MAP_ROWS-2?"sand":"plain"; }
-  if(areaId==="kyushu") for(const c of [0,1,MAP_COLS-2,MAP_COLS-1]){ T[MAP_ROWS-1][c].t="sand"; }
+/* ===== 地図を作る（手描きの配置を読む。左2列の水は砂浜にして必ず配置できるようにする） ===== */
+function genMap(stage){
+  const T=stage.layout.map((row,r)=>{ if(row.length!==MAP_COLS) throw new Error(`地図の${r+1}行目が${row.length}文字`);
+    return [...row].map(ch=>({t:TILE_CODE[ch]||"plain",fire:0,smoke:0,wreck:false})); });
+  if(T.length!==MAP_ROWS) throw new Error("地図の行数が違う");
+  for(let r=0;r<MAP_ROWS;r++){ if(T[r][1].t==="water") T[r][1].t="sand"; }
   return T;
 }
 
@@ -180,6 +205,12 @@ function decoFor(tile){
       <g class="flames"><path class="fl f1" d="M-14 10 C-20 0,-12 -6,-12 -16 C-6 -8,-2 -4,-6 10Z" fill="#ff7a1a"/><path class="fl f2" d="M4 12 C-2 2,6 -6,8 -20 C14 -10,18 -2,12 12Z" fill="#ffb12a"/><path class="fl f3" d="M-4 14 C-8 8,-2 2,0 -6 C4 2,6 8,2 14Z" fill="#ffe36a"/></g>`;
   else if(t==="burnt") d=`<use href="#d-btree" x="-22" y="-22" width="20" height="26"/><use href="#d-btree" x="4" y="-26" width="22" height="28"/><use href="#d-btree" x="-8" y="-4" width="20" height="26"/><g fill="#1c1611" opacity=".6"><ellipse cx="-10" cy="16" rx="8" ry="3"/><ellipse cx="12" cy="10" rx="7" ry="2.5"/></g>`;
   else if(t==="crater") d=`<ellipse cx="0" cy="4" rx="${s*0.48}" ry="${s*0.3}" fill="#3e3a28" stroke="#6b6640" stroke-width="2"/><ellipse cx="2" cy="6" rx="${s*0.3}" ry="${s*0.17}" fill="#2a2719"/><g fill="#5a5438"><circle cx="-20" cy="-10" r="2.5"/><circle cx="18" cy="-12" r="2"/></g>`;
+  else if(t==="hill") d=`<ellipse cx="0" cy="8" rx="${s*0.62}" ry="${s*0.36}" fill="#86a84f" stroke="#5c7a34" stroke-width="1.2"/><ellipse cx="-2" cy="4" rx="${s*0.42}" ry="${s*0.22}" fill="none" stroke="#5c7a34" stroke-width="1"/><ellipse cx="-3" cy="1" rx="${s*0.2}" ry="${s*0.1}" fill="#a3c46a"/>`;
+  else if(t==="town") d=`<use href="#d-house" x="-24" y="-20" width="22" height="18"/><use href="#d-house" x="2" y="-12" width="24" height="19"/><use href="#d-house" x="-14" y="4" width="22" height="18"/><use href="#d-tree" x="12" y="-30" width="14" height="18"/>`;
+  else if(t==="fort") d=`<path d="M-24 6 Q0 -16 24 6" fill="none" stroke="#4f4026" stroke-width="7" stroke-linecap="round"/><path d="M-24 6 Q0 -16 24 6" fill="none" stroke="#c9b27a" stroke-width="5" stroke-dasharray="5 2" stroke-linecap="round"/><rect x="-7" y="-4" width="14" height="8" rx="2" fill="#5a4a2c"/><path d="M-3 -2 L8 -6" stroke="#222" stroke-width="2"/><path d="M-26 16 H26" stroke="#4f4026" stroke-width="3"/>`;
+  else if(t==="field") d=`<g stroke="#8a8630" stroke-width="2" opacity=".85"><path d="M-26 -10 L10 -26 M-28 0 L18 -20 M-26 10 L26 -12 M-20 18 L28 -2 M-8 24 L26 8"/></g><g fill="#e8e09a"><circle cx="-10" cy="-8" r="1.6"/><circle cx="8" cy="0" r="1.6"/><circle cx="-2" cy="12" r="1.6"/></g>`;
+  else if(t==="swamp") d=`<g fill="#3d5a5e" stroke="#2b3f3a"><ellipse cx="-10" cy="-4" rx="9" ry="4"/><ellipse cx="10" cy="8" rx="11" ry="4.5"/><ellipse cx="-4" cy="18" rx="7" ry="3"/></g><g stroke="#2f4a1e" stroke-width="1.6" stroke-linecap="round"><path d="M-20 10 v-10 M-17 10 v-7 M16 -8 v-10 M19 -8 v-7 M2 -14 v-8"/></g>`;
+  else if(t==="rail") d=`<rect x="${-HEX_W/2}" y="-8" width="${HEX_W}" height="16" fill="#8a8476"/><g stroke="#4a3a28" stroke-width="3">${[-24,-14,-4,6,16,26].map(x=>`<path d="M${x} -8 V8"/>`).join("")}</g><path d="M${-HEX_W/2} -4 H${HEX_W/2} M${-HEX_W/2} 4 H${HEX_W/2}" stroke="#cfd3d6" stroke-width="2"/>`;
   if(tile.wreck) d+=`<use href="#d-wreck" x="-16" y="-2" width="32" height="18"/><g class="wsmoke"><circle cx="6" cy="-6" r="4" fill="#555" opacity=".5"/><circle cx="9" cy="-14" r="5" fill="#777" opacity=".35"/></g>`;
   if(tile.smoke>0) d+=`<g class="smoke"><circle cx="-10" cy="-4" r="15" fill="#d9dde0" opacity=".55"/><circle cx="10" cy="0" r="17" fill="#e8ebed" opacity=".5"/><circle cx="0" cy="12" r="14" fill="#cdd2d6" opacity=".5"/></g>`;
   return d;
@@ -228,38 +259,99 @@ function enemySvg(type,boss,size){
   return `<svg viewBox="-24 -24 48 48" width="${size}" height="${size}"><circle r="22" fill="#0d0607" opacity=".55" stroke="${col}" stroke-width="2.4"/>${sh}${boss?'<path d="M-9-22 L-5-16 L0-23 L5-16 L9-22 L8-14 L-8-14Z" fill="#f0c040" stroke="#7a5a10"/>':""}</svg>`;
 }
 
-/* ===== 出撃：戦域の一覧と出撃準備 ===== */
+/* ===== 出撃：戦域の一覧 → 戦域の地図（段階の点） → 出撃準備 ===== */
 function renderSortie(){
   const l=document.getElementById("area-list"); l.innerHTML="";
+  if(sortie&&sortie.view==="map") return renderAreaMap();
   AREAS.forEach((a,i)=>{
-    const cleared=(state.clearedAreas||[]).includes(a.id), bd=AREA_BATTLE[a.id];
-    const kinds=[...new Set(bd.waves.flat().map(w=>w.t))];
-    const d=document.createElement("div"); d.className="area-card"+(cleared?" cleared":"");
+    const open=areaOpen(i), cleared=(state.clearedAreas||[]).includes(a.id);
+    const kinds=[...new Set(STAGES[a.id].flatMap(st=>st.waves.flat().map(w=>w.t)))];
+    const pips=STAGES[a.id].map((st,k)=>`<i class="${stageCleared(a.id,k)?"done":stageOpen(a.id,k)?"open":""}${st.boss?" boss":""}"></i>`).join("");
+    const d=document.createElement("div"); d.className="area-card"+(cleared?" cleared":"")+(open?"":" locked");
     d.innerHTML=`<div class="ac-no">${["I","II","III","IV","V"][i]}</div>
       <div class="ac-body"><div class="ac-name">${a.name}${cleared?'<span class="ac-clear">攻略済</span>':''}</div>
-        <div class="ac-desc">${a.desc}</div>
-        <div class="ac-meta"><span>推奨戦闘力 <b>${a.power}</b></span><span>敵 ${bd.waves.length}波</span>
+        <div class="ac-desc">${open?a.desc:"前の戦域のボスを倒すと出撃できます"}</div>
+        <div class="ac-meta"><span class="ac-pips">${pips}</span><span>推奨戦闘力 <b>${a.power}</b></span>
           <span class="ac-foes">${kinds.map(t=>enemySvg(t,false,22)).join("")}</span></div>
         ${a.restrict&&a.restrict.note?`<div class="ac-restrict">⚑ ${a.restrict.note}</div>`:""}</div>
       <div class="ac-terrain">${miniHex(a.terrain)}</div>
-      <button class="primary" onclick="enterArea('${a.id}')">出撃準備 ▶</button>`;
+      <button class="primary" ${open?"":"disabled"} onclick="enterArea('${a.id}')">${open?"戦域へ ▶":"🔒 未開放"}</button>`;
     l.appendChild(d);
   });
 }
 function miniHex(t){ const tile={t,fire:0,smoke:0,wreck:false};
   return `<svg viewBox="-40 -42 80 84" width="74" height="78">${terrainDefs()}<polygon points="${hexPoints(HEX_S)}" fill="url(#tg-${t})" stroke="#1b1b14" stroke-width="2"/>${decoFor(tile)}</svg>`; }
-function enterArea(id){ sortie={areaId:id}; renderPreBattle(); document.getElementById("prebattle").classList.remove("hidden"); }
+/* 段階の地図の見本（小さな六角で全体を描く） */
+function layoutPreview(st,s){
+  const w=Math.sqrt(3)*s; let h="";
+  st.layout.forEach((row,r)=>[...row].forEach((ch,c)=>{ const t=TERRAIN[TILE_CODE[ch]||"plain"];
+    const x=w*(c+0.5*(r&1))+w/2, y=s+r*1.5*s;
+    h+=`<polygon points="${hexPoints(s-0.4)}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})" fill="${t.g[0]}" stroke="${t.g[1]}" stroke-width="1"/>`; }));
+  const W2=(MAP_COLS+0.5)*w, H2=(1.5*(MAP_ROWS-1)+2)*s;
+  return `<svg viewBox="0 0 ${W2.toFixed(0)} ${H2.toFixed(0)}" width="${W2.toFixed(0)}" height="${H2.toFixed(0)}">${h}
+    <rect x="0" y="0" width="${(2*w).toFixed(0)}" height="${H2.toFixed(0)}" fill="#2a8fd0" opacity=".18"/><rect x="${(W2-3*w).toFixed(0)}" y="0" width="${(3*w).toFixed(0)}" height="${H2.toFixed(0)}" fill="#d0402a" opacity=".16"/></svg>`;
+}
+/* 戦域の絵（背景と目印） */
+function areaArt(id){
+  const art={
+    hokkaido:`<rect width="100" height="60" fill="url(#ag-hokkaido)"/><path d="M0 18 Q25 12 50 16 T100 14 V0 H0Z" fill="#9fb4c8" opacity=".5"/>
+      ${[8,14,20,64,70,76,88].map((x,i)=>`<path d="M${x} ${44-i%3*3} l3 -8 l3 8Z" fill="#4f6f5a" opacity=".55"/>`).join("")}<path d="M46 60 Q50 40 44 30 T52 0" stroke="#9fd3f2" stroke-width="1.6" fill="none" opacity=".8"/>`,
+    fuji:`<rect width="100" height="60" fill="url(#ag-fuji)"/><path d="M40 40 L62 6 L84 40Z" fill="#6f7f9a"/><path d="M57 14 L62 6 L67 14 L64 13 L62 16 L60 13Z" fill="#fff"/>
+      <g fill="#cbb85a" opacity=".5">${[6,14,22].map(x=>`<rect x="${x}" y="46" width="6" height="8"/>`).join("")}</g>${[30,36,88,94].map(x=>`<path d="M${x} 48 l2.5 -7 l2.5 7Z" fill="#3f6a3a" opacity=".6"/>`).join("")}`,
+    kyushu:`<rect width="100" height="60" fill="url(#ag-kyushu)"/><path d="M0 0 H34 Q26 18 30 32 T22 60 H0Z" fill="#3f7fb0" opacity=".85"/><path d="M34 0 Q26 18 30 32 T22 60" stroke="#f2e2a8" stroke-width="2.2" fill="none"/>
+      <ellipse cx="10" cy="20" rx="4" ry="2" fill="#7a9a5a"/><g fill="#d9d4c4" opacity=".7">${[56,62,68,74].map(x=>`<rect x="${x}" y="24" width="3" height="4"/>`).join("")}</g>`,
+    city:`<rect width="100" height="60" fill="url(#ag-city)"/><g fill="#555b62" opacity=".7">${[4,12,18,30,40,48,58,66,74,86,92].map((x,i)=>`<rect x="${x}" y="${30-(i*7%14)}" width="6" height="${30+(i*7%14)}"/>`).join("")}</g>
+      <path d="M0 44 H100" stroke="#c9c3b6" stroke-width="1.2" stroke-dasharray="3 2"/>`,
+    river:`<rect width="100" height="60" fill="url(#ag-river)"/><path d="M38 0 Q48 18 42 30 T50 60 H62 Q56 40 60 30 T52 0Z" fill="#3f86b8" opacity=".9"/><path d="M36 34 H64" stroke="#8a6a44" stroke-width="3"/>
+      ${[10,16,22,80,86].map(x=>`<path d="M${x} 50 l2.5 -7 l2.5 7Z" fill="#3f6a3a" opacity=".6"/>`).join("")}`,
+  }[id]||"";
+  return `<defs><linearGradient id="ag-hokkaido" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfdbe6"/><stop offset="1" stop-color="#eef3f7"/></linearGradient>
+    <linearGradient id="ag-fuji" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9ec3e0"/><stop offset=".55" stop-color="#b8cf8a"/><stop offset="1" stop-color="#7f9a52"/></linearGradient>
+    <linearGradient id="ag-kyushu" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e8d8a0"/><stop offset="1" stop-color="#8fae66"/></linearGradient>
+    <linearGradient id="ag-city" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9b3a8"/><stop offset="1" stop-color="#7d786e"/></linearGradient>
+    <linearGradient id="ag-river" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8fae66"/><stop offset="1" stop-color="#6f8f4a"/></linearGradient></defs>${art}`;
+}
+function renderAreaMap(){
+  const a=curArea(), sts=STAGES[a.id], l=document.getElementById("area-list");
+  const sel=sortie.stage!=null?sortie.stage:Math.max(0,sts.findIndex((st,i)=>stageOpen(a.id,i)&&!stageCleared(a.id,i)));
+  sortie.stage=sel<0?0:sel;
+  const pts=[{x:6,y:50}].concat(sts.map(st=>({x:st.x,y:st.y})));
+  const path=pts.map((p,i)=>(i?"L":"M")+p.x+" "+p.y*0.6).join(" ");
+  const nodes=sts.map((st,i)=>{ const done=stageCleared(a.id,i), open=stageOpen(a.id,i);
+    return `<g class="an${done?" done":open?" open":" locked"}${i===sortie.stage?" sel":""}${st.boss?" boss":""}" transform="translate(${st.x},${st.y*0.6})" onclick="pickStage(${i})">
+      <circle r="4.2" class="an-ring"/><circle r="3"/><text y="1.1">${st.boss?"★":i+1}</text><text class="an-lbl" y="-5.6">${a.short} ${i+1}</text></g>`; }).join("");
+  const st=sts[sortie.stage], kinds=[...new Set(st.waves.flat().map(w=>w.t))];
+  l.innerHTML=`<div class="amap">
+    <div class="amap-head"><button onclick="leaveArea()">◀ 戦域選択</button><b>${a.name}</b><span>${sts.filter((x,i)=>stageCleared(a.id,i)).length}/${sts.length} 攻略</span></div>
+    <div class="amap-body">
+      <svg class="amap-art" viewBox="0 0 100 60" preserveAspectRatio="none">${areaArt(a.id)}<path d="${path}" class="an-path"/>
+        <g class="an start" transform="translate(6,30)"><circle r="3.4"/><text y="1.1">出</text></g>${nodes}</svg>
+      <div class="amap-info">
+        <div class="ai-no">${a.short} ${sortie.stage+1}${st.boss?'<span class="ai-boss">ボス</span>':""}${stageCleared(a.id,sortie.stage)?'<span class="ai-done">攻略済</span>':""}</div>
+        <div class="ai-name">${st.name}</div><p class="ai-desc">${st.desc}</p>
+        <div class="ai-prev">${layoutPreview(st,13)}</div>
+        <div class="ai-meta"><span>推奨戦闘力 <b>${stagePower(a.id,sortie.stage)}</b></span><span>敵 ${st.waves.length}波</span></div>
+        <div class="ai-foes">${kinds.map(t=>`<span>${enemySvg(t,false,26)}<small>${ENEMY_TYPES[t].name.replace("敵","")}</small></span>`).join("")}</div>
+        <button class="primary big" ${stageOpen(a.id,sortie.stage)?"":"disabled"} onclick="openPreBattle()">${stageOpen(a.id,sortie.stage)?"出撃準備 ▶":"🔒 前の段階を攻略"}</button>
+      </div>
+    </div></div>`;
+}
+function enterArea(id){ sortie={areaId:id,view:"map",stage:null}; renderSortie(); }
+function leaveArea(){ sortie=null; renderSortie(); }
+function pickStage(i){ sortie.stage=i; renderAreaMap(); }
+function openPreBattle(){ if(!stageOpen(sortie.areaId,sortie.stage)) return; renderPreBattle(); document.getElementById("prebattle").classList.remove("hidden"); }
 function curArea(){ return AREAS.find(a=>a.id===sortie.areaId); }
-function areaBack(){ document.getElementById("prebattle").classList.add("hidden"); sortie=null; }
+function curStage(){ return STAGES[sortie.areaId][sortie.stage]; }
+function areaBack(){ document.getElementById("prebattle").classList.add("hidden"); }
 function renderPreBattle(){
-  const a=curArea();
-  document.getElementById("map-title").textContent=a.name;
-  const terr=TERRAIN[a.terrain]||TERRAIN.plain;
-  document.getElementById("restrict-note").innerHTML=`<b>地形の特徴：${terr.name}</b> — ${terr.note}`+(a.restrict&&a.restrict.note?`　⚑ ${a.restrict.note}`:"");
+  const a=curArea(), st=curStage();
+  document.getElementById("map-title").textContent=`${a.short} ${sortie.stage+1}「${st.name}」`;
+  document.getElementById("restrict-note").innerHTML=`${st.desc}　<b>推奨戦闘力 ${stagePower(a.id,sortie.stage)}</b>`+(a.restrict&&a.restrict.note?`　⚑ ${a.restrict.note}`:"");
   const tabs=document.getElementById("pb-squad-tabs"); tabs.innerHTML="";
   for(let i=0;i<SQUAD_COUNT;i++){ const b=document.createElement("button");
     b.className="num-tab"+(state.activeSquad===i?" active":""); b.textContent=i+1;
     b.onclick=()=>{ state.activeSquad=i; save(); renderPreBattle(); }; tabs.appendChild(b); }
+  tabs.insertAdjacentHTML("beforeend",`<span class="pb-power">${squadName(state.activeSquad)}　総戦闘力 <b>${squadPower()}</b></span>`);
   renderSortieSquad();
 }
 function renderSortieSquad(){
@@ -274,7 +366,7 @@ function renderSortieSquad(){
 
 /* ===== 戦闘を始める ===== */
 function startBattle(){
-  const a=curArea(); const members=squadMembers();
+  const a=curArea(), stage=curStage(); const members=squadMembers();
   if(!members.length){ toast("出撃部隊が空です（編成で隊員を入れてください）"); return; }
   if(a.restrict){ for(const u of members){ const c=charOf(u);
       if(a.restrict.classes&&!a.restrict.classes.includes(c.class)){ toast(`${c.name} は出撃不可（兵科制限）`); return; }
@@ -287,7 +379,7 @@ function startBattle(){
   const squad=members.slice(0,SQUAD_SIZE);
   const lead=squad.reduce((m,u)=>abilityOf(u).type==="leadership"?Math.max(m,abilityVal(u)):m,0);
   const count=squad.length>=5?squad.reduce((m,u)=>abilityOf(u).type==="count"?Math.max(m,abilityVal(u)):m,0):0;
-  const tiles=genMap(a.id, Date.now()&0xffffffff);
+  const tiles=genMap(stage);
   const spots=[]; for(const c of [1,0]) for(const r of [4,3,5,2,6,1,7,0,8]) spots.push({c,r});
   const units=squad.map((u,i)=>{ const c=charOf(u), ab=abilityOf(u), av=abilityVal(u);
     const selfAtk=(ab.type==="selffire"||ab.type==="self_def")?av:0;
@@ -299,24 +391,25 @@ function startBattle(){
       mv:Math.max(2,Math.min(5,Math.round(effStat(u,"mobility")/22))),
       rng:effStat(u,"range")>=RANGE_LONG?2:1, crit:critRate(u), scout:effStat(u,"scout"),
       c:sp.c, r:sp.r, moved:false, acted:false, st:{}, cd:{}}; });
-  battle={ area:a, tiles, units, enemies:[], waveIdx:0, side:"ally", turnNo:1, sel:null, busy:false,
+  battle={ area:a, stage, stageNo:sortie.stage, tiles, units, enemies:[], waveIdx:0, side:"ally", turnNo:1, sel:null, busy:false,
     memberUids:squad.map(u=>u.uid), selAttack:"normal", skillCd:{}, result:null, auto:false, speed:battle&&battle.speed||1,
     logs:[], startHp:squad.reduce((s,u)=>s+u.hp,0) };
-  battle.enemyTotal=AREA_BATTLE[a.id].waves.flat().reduce((s,w)=>s+Math.round(ENEMY_TYPES[w.t].hp*(w.hp||1))*w.n,0);
+  battle.enemyTotal=stage.waves.flat().reduce((s,w)=>s+Math.round(ENEMY_TYPES[w.t].hp*(w.hp||1))*w.n,0);
   state.records.sorties++; bumpMission("sortie"); save();
   document.getElementById("prebattle").classList.add("hidden");
   showBattleScreen(true);
   renderMap(); spawnWave(true);
   if(lead||count) blog(`📡 小隊の攻撃力 +${Math.round((lead+count)*100)}%（${[lead?"指揮":"",count?"数の力":""].filter(Boolean).join("・")}）`,"log-win");
   renderBattle();
-  (async()=>{ battle.busy=true; await banner(`${a.name.split("：")[1]||a.name}　作戦開始`,"start"); battle.busy=false; await beginSide("ally"); })();
+  document.getElementById("battle").dataset.area=a.id;
+  (async()=>{ battle.busy=true; await banner(`${a.short} ${sortie.stage+1}「${stage.name}」　作戦開始`,"start"); battle.busy=false; await beginSide("ally"); })();
 }
 function showBattleScreen(on){
   document.getElementById("battle").classList.toggle("hidden",!on);
   document.getElementById("stage").dataset.screen=on?"battle":"sortie";
 }
 function spawnWave(first){
-  const bd=AREA_BATTLE[battle.area.id];
+  const bd=battle.stage;
   if(battle.waveIdx>=bd.waves.length) return false;
   const wave=bd.waves[battle.waveIdx]; battle.waveIdx++;
   const spots=[]; for(const c of [MAP_COLS-1,MAP_COLS-2,MAP_COLS-3]) for(const r of [4,2,6,3,5,1,7,0,8]) spots.push({c,r});
@@ -506,15 +599,15 @@ async function checkEnd(){
   if(battle.result) return true;
   if(!battle.units.length){ endBattle("lose"); return true; }
   if(battle.enemies.length<=1){
-    if(battle.waveIdx<AREA_BATTLE[battle.area.id].waves.length){ spawnWave(false); renderBattle(); await banner("敵増援 接近！","warn"); }
+    if(battle.waveIdx<battle.stage.waves.length){ spawnWave(false); renderBattle(); await banner("敵増援 接近！","warn"); }
     else if(!battle.enemies.length){ await banner("敵部隊 殲滅","start"); endBattle("win"); return true; }
   }
   return false;
 }
 
 /* ===== 支援（全体の技） ===== */
-async function useSkill(id){
-  if(!battle||battle.side!=="ally"||battle.busy||battle.result) return;
+async function useSkill(id,fromAI){
+  if(!battle||battle.side!=="ally"||(battle.busy&&!fromAI)||battle.result) return;
   const S=SKILLS[id];
   if((battle.skillCd[id]||0)>0){ toast(`${S.name} はあと${battle.skillCd[id]}ターン`); return; }
   battle.busy=true; battle.skillCd[id]=S.cd; renderActions();
@@ -530,7 +623,7 @@ async function useSkill(id){
     for(const e of [...battle.enemies]){ const dmg=Math.round(e.maxhp*0.3+30); e.hp=Math.max(0,e.hp-dmg); boom(e.c,e.r,1.3); hitAnim(e,dmg,false); if(e.kind!=="air"&&Math.random()<0.6) scarTile(e.c,e.r); }
     await wait(700); blog("☄️ 支援砲撃！","log-win"); await reapDead();
   }
-  battle.busy=false; renderBattle();
+  battle.busy=!!fromAI; renderBattle();
 }
 
 /* ===== ターンの流れ ===== */
@@ -541,20 +634,21 @@ async function beginSide(side){
   mine.forEach(u=>{ u.moved=false; u.acted=false; });
   renderBattle();
   await banner(side==="ally"?`自軍ターン　${battle.turnNo}`:"敵軍ターン",side==="ally"?"ally":"enemy");
+  if(!battle||battle.result) return;
   // 炎上のダメージ
   for(const u of mine.filter(x=>x.st.burn&&x.hp>0)){ const d=Math.max(1,Math.round(u.maxhp*0.08)); u.hp=Math.max(0,u.hp-d);
     boom(u.c,u.r,0.6); await hitAnim(u,d,false); blog(`🔥 ${u.name} 炎上で${d}`,"log-lose"); }
-  await reapDead(); if(battle.result) return;
-  battle.busy=false; renderBattle();
+  await reapDead(); if(!battle||battle.result) return;
+  battle.busy=side==="enemy"||battle.auto; renderBattle();
   if(side==="enemy"){ await runAI(battle.enemies); if(battle&&!battle.result) await endSide("enemy"); }
   else if(battle.auto){ await autoAllies(); }
 }
 async function autoAllies(){
   if(!battle||battle.side!=="ally"||battle.result) return;
   // 自動：使える支援は先に使う
-  for(const id of ["charge","barrage"]) if(!(battle.skillCd[id]>0)&&battle.enemies.length>=2){ await useSkill(id); break; }
+  for(const id of ["charge","barrage"]) if(!(battle.skillCd[id]>0)&&battle.enemies.length>=2){ await useSkill(id,true); break; }
   if(battle.result) return;
-  if(!(battle.skillCd.repair>0)&&battle.units.some(u=>u.hp<u.maxhp*0.45)) await useSkill("repair");
+  if(!(battle.skillCd.repair>0)&&battle.units.some(u=>u.hp<u.maxhp*0.45)) await useSkill("repair",true);
   if(battle.result) return;
   await runAI(battle.units.filter(u=>!u.acted));
   if(battle&&!battle.result) await endSide("ally");
@@ -588,7 +682,7 @@ function tickTiles(){
 /* ===== 考える（敵・自動の味方で同じ） ===== */
 async function runAI(list){
   const order=[...list].sort((a,b)=>b.mv-a.mv);
-  for(const u of order){ if(!battle||battle.result) return; if(u.hp<=0||u.acted) continue; await aiAct(u); }
+  for(const u of order){ if(!battle||battle.result) return; if(u.hp<=0||u.acted) continue; battle.busy=true; await aiAct(u); }
 }
 async function aiAct(u){
   const foes=foesOf(u); if(!foes.length){ u.acted=true; return; }
@@ -661,11 +755,11 @@ function waitUnit(){ const s=selUnit(); if(!s||battle.busy) return; s.acted=true
 async function endPlayerTurn(){ if(!battle||battle.side!=="ally"||battle.busy||battle.result) return; await endSide("ally"); }
 async function toggleAuto(){
   if(!battle) return; battle.auto=!battle.auto; renderActions();
-  if(battle.auto&&battle.side==="ally"&&!battle.busy&&!battle.result){ battle.sel=null; clearHl(); await autoAllies(); }
+  if(battle.auto&&battle.side==="ally"&&!battle.busy&&!battle.result){ battle.sel=null; clearHl(); battle.busy=true; await autoAllies(); }
 }
 function toggleSpeed(){ if(!battle) return; battle.speed=battle.speed===1?2:battle.speed===2?3:1; renderActions(); }
 function retreat(){
-  if(!battle||battle.busy) return;
+  if(!battle||battle.busy||battle.side!=="ally"||battle.result) return; // 動きの途中・敵の番は撤退できない
   if(!confirm("撤退しますか？戦果は失われます（損傷はそのまま残ります）")) return;
   syncBattleHp(); battle=null; showBattleScreen(false); renderSortie(); toast("撤退しました。損傷した隊員は整備へ。");
 }
@@ -698,10 +792,10 @@ function renderSide(){
   const al=document.getElementById("bt-allies");
   const fought=battle.memberUids.map(uid=>battle.units.find(u=>u.uid===uid)||{dead:true,uid});
   al.innerHTML=fought.map(u=>{ if(u.dead||!u.name){ const ou=findUnit(u.uid), c=ou&&charOf(ou);
-      return `<div class="bc-card ally dead"><div class="bc-face" style="background-image:url('../assets/characters/${c?c.id:""}_d4.png${ASSET_V}')"></div><div class="bc-body"><b>${c?c.name:""}</b><span class="bc-dead">撃破</span></div></div>`; }
+      return `<div class="bc-card ally dead"><div class="bc-face" style="background-image:url('${c?faceImg(c.id,1):""}')"></div><div class="bc-body"><b>${c?c.name:""}</b><span class="bc-dead">撃破</span></div></div>`; }
     const pct=u.hp/u.maxhp*100;
     return `<div class="bc-card ally${battle.sel===u.id?" sel":""}${u.acted&&battle.side==="ally"?" done":""}" onclick="clickUnitById('${u.id}')">
-      <div class="bc-face" style="background-image:url('${dmgSprite(u.cid,u.hp/u.maxhp)}')"></div>
+      <div class="bc-face" style="background-image:url('${faceImg(u.cid,u.hp/u.maxhp)}')"></div>
       <div class="bc-body"><b>${u.name}</b><small>Lv.${u.lv}・${u.cls}</small>
       <div class="bc-hp${pct<25?" low":pct<50?" mid":""}"><i style="width:${pct}%"></i></div><span class="bc-hpt">耐久 ${u.hp}/${u.maxhp}</span>
       <div class="bc-st">${stIcons(u)}</div></div></div>`; }).join("");
@@ -711,18 +805,18 @@ function renderSide(){
       <div class="bc-body"><b>${e.name}</b><small>攻${e.atk}・防${e.def}・射${e.rng}</small>
       <div class="bc-hp enemy${pct<25?" low":""}"><i style="width:${pct}%"></i></div><span class="bc-hpt">耐久 ${e.hp}/${e.maxhp}</span>
       <div class="bc-st">${stIcons(e)}</div></div></div>`; }).join("")+
-    (battle.waveIdx<AREA_BATTLE[battle.area.id].waves.length?`<div class="bc-next">増援 あと${AREA_BATTLE[battle.area.id].waves.length-battle.waveIdx}波</div>`:"");
+    (battle.waveIdx<battle.stage.waves.length?`<div class="bc-next">増援 あと${battle.stage.waves.length-battle.waveIdx}波</div>`:"");
 }
 function clickUnitById(id){ const u=allUnits().find(x=>x.id===id); if(u) clickUnit(u); }
 function renderForce(){
   const a=battle.units.reduce((s,u)=>s+u.hp,0), amax=battle.memberUids.reduce((s,uid)=>{ const f=findUnit(uid); return s+(f?f.maxhp:0); },0);
-  const bd=AREA_BATTLE[battle.area.id];
+  const bd=battle.stage;
   const pend=bd.waves.slice(battle.waveIdx).flat().reduce((s,w)=>s+Math.round(ENEMY_TYPES[w.t].hp*(w.hp||1))*w.n,0);
   const e=battle.enemies.reduce((s,u)=>s+u.hp,0)+pend;
   document.getElementById("bf-ally").style.width=(a/amax*100)+"%"; document.getElementById("bf-ally-num").textContent=a;
   document.getElementById("bf-enemy").style.width=(e/battle.enemyTotal*100)+"%"; document.getElementById("bf-enemy-num").textContent=e;
   document.getElementById("bt-turn").textContent=`TURN ${battle.turnNo}`;
-  document.getElementById("bt-area").textContent=battle.area.name.split("：")[0];
+  document.getElementById("bt-area").textContent=`${battle.area.short} ${battle.stageNo+1}「${battle.stage.name}」`;
 }
 function clearHl(){ const g=document.getElementById("bt-hl"); if(g) g.innerHTML=""; }
 function renderHl(enemyView){
@@ -789,16 +883,20 @@ function endBattle(result){
   const all=fought.map(u=>({abType:abilityOf(u).type,abVal:abilityVal(u)}));
   syncBattleHp();
   if(result==="win"){
-    const foe=AREA_BATTLE[a.id].eBaseHP*0.2, resB=1+teamAbility(all,"resource");
+    const foe=a.eBaseHP*0.2*[0.5,0.75,1][battle.stageNo], resB=1+teamAbility(all,"resource");
     const g={fuel:Math.round(foe*0.18*resB),ammo:Math.round(foe*0.2*resB),steel:Math.round(foe*0.15*resB),parts:Math.round(foe*0.12*resB),gold:Math.round(foe*0.08*resB)};
     for(const k in g) state.res[k]=(state.res[k]||0)+g[k];
     summary.res=Object.assign({},g);
     const ex=Math.round(200*(1+teamAbility(all,"exp")));
     fought.forEach(u=>gainExp(u,ex)); gainCmdExp(120); summary.exp=ex;
-    state.records.wins++; bumpMission("win"); bumpMission("clear");
-    if(!state.clearedAreas) state.clearedAreas=[];
-    if(!state.clearedAreas.includes(a.id)){ state.clearedAreas.push(a.id); state.res.gold+=150; addItem("remodel",1);
-      summary.firstClear=true; summary.res.gold=(summary.res.gold||0)+150; }
+    state.records.wins++; bumpMission("win");
+    if(!state.clearedStages) state.clearedStages=[];
+    const sk=stageKey(a.id,battle.stageNo);
+    if(!state.clearedStages.includes(sk)){ state.clearedStages.push(sk); state.res.gold+=50; summary.res.gold=(summary.res.gold||0)+50; summary.stageClear=true; }
+    if(battle.stage.boss){ bumpMission("clear");
+      if(!state.clearedAreas) state.clearedAreas=[];
+      if(!state.clearedAreas.includes(a.id)){ state.clearedAreas.push(a.id); state.res.gold+=150; addItem("remodel",1);
+        summary.firstClear=true; summary.res.gold=(summary.res.gold||0)+150; } }
     if(Math.random()<Math.min(1,0.9+teamAbility(all,"luck"))){ const u=rollUnit(0.6); state.owned.push(u); seeDex(u.charId); state.records.drops++;
       summary.drops.push(`${charOf(u).name}（★${charOf(u).rarity}）`); }
     if(Math.random()<0.8+teamAbility(all,"luck")){ const eid=rollEquip(0.6); addEquip(eid,1);
@@ -822,9 +920,10 @@ function battleResultCard(result,a,s){
     if(s.exp) rows+=`<li>📈 経験値 <b>+${s.exp}</b></li>`;
     s.drops.forEach(d=>rows+=`<li class="br-special">🎁 ${d} が着隊！</li>`);
     s.equips.forEach(e=>rows+=`<li class="br-special">⚙️ 装備「${e}」を入手</li>`);
-    if(s.firstClear) rows+=`<li class="br-special">🎖 戦域初攻略ボーナス！</li>`;
+    if(s.stageClear&&!s.firstClear) rows+=`<li class="br-special">🚩 ${a.short} ${battle.stageNo+1} 初攻略！ 次の段階へ進めます</li>`;
+    if(s.firstClear) rows+=`<li class="br-special">🎖 戦域攻略！ 次の戦域が開きました</li>`;
     return `<div class="br-card">${s.mvp?`<div class="br-mvp"><img src="../assets/characters/${s.mvp.cid}.png${ASSET_V}" alt=""><span>MVP<b>${s.mvp.name}</b></span></div>`:""}
-      <div class="br-main"><div class="br-rank">S</div><h3>勝　利</h3><div class="br-sub">${a.name} を制圧（${battle.turnNo}ターン）</div>
+      <div class="br-main"><div class="br-rank">S</div><h3>勝　利</h3><div class="br-sub">${a.short} ${battle.stageNo+1}「${battle.stage.name}」を制圧（${battle.turnNo}ターン）</div>
       <ul class="br-summary">${rows}</ul><button class="primary big" onclick="afterBattle()">確認</button></div></div>`;
   }
   return `<div class="br-card"><div class="br-main"><div class="br-rank lose">D</div><h3>敗　北</h3>
@@ -838,7 +937,9 @@ function syncBattleHp(){
     u.hp=pu?Math.max(1,Math.min(u.maxhp,Math.round(pu.hp))):1; });
   save();
 }
-function afterBattle(){ document.getElementById("battle-result").className="hidden"; battle=null; showBattleScreen(false); renderSortie(); renderBaseStats(); }
+function afterBattle(){ document.getElementById("battle-result").className="hidden"; battle=null; showBattleScreen(false);
+  if(sortie){ const sts=STAGES[sortie.areaId]; const nx=sts.findIndex((x,i)=>stageOpen(sortie.areaId,i)&&!stageCleared(sortie.areaId,i)); sortie.stage=nx>=0?nx:sortie.stage; }
+  renderSortie(); renderBaseStats(); }
 function gainExp(u,a){ u.exp+=a; while(u.exp>=u.level*100){ u.exp-=u.level*100; u.level++; } }
 
 /* ===== 結線 ===== */

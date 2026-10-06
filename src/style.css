@@ -236,7 +236,7 @@ h2 small{font-family:"Black Ops One";font-size:.75rem;letter-spacing:3px;color:v
 .sp-stats span{display:flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,.28);font-size:.78rem;color:#d7efe9}
 .sp-stats i{font-style:normal;font-size:.75rem}.sp-stats b{margin-left:auto;font-family:"Saira Condensed";font-size:1rem;color:#fff}
 .sp-banner{position:absolute;right:10px;top:10px;width:200px;height:84px;border-radius:6px;z-index:1;
-  background-color:#cfe6f2;background-size:240% auto;background-position:50% 7%;background-repeat:no-repeat;border:2px solid rgba(255,255,255,.7);box-shadow:inset 0 0 12px rgba(0,0,0,.25)}
+  background-color:#cfe6f2;background-size:cover;background-position:50% 50%;background-repeat:no-repeat;border:2px solid rgba(255,255,255,.7);box-shadow:inset 0 0 12px rgba(0,0,0,.25)}
 .sp-cls{position:absolute;left:-2px;top:-2px;padding:2px 9px;border-radius:6px 0 6px 0;font-family:"Shippori Mincho",serif;font-weight:800;font-size:1rem;
   background:linear-gradient(180deg,#5a6268,#2e3438);color:#fff;border:1px solid #cfd6da}
 .sp-exp{position:absolute;right:10px;top:98px;width:200px;height:4px;background:rgba(0,0,0,.45);border-radius:2px;overflow:hidden}
@@ -262,6 +262,7 @@ h2 small{font-family:"Black Ops One";font-size:.75rem;letter-spacing:3px;color:v
 .sl-tab th{position:sticky;top:0;background:var(--pan2);color:#fff;font-weight:600;padding:6px;font-size:.78rem}
 .sl-tab td{padding:4px 6px;border-bottom:1px solid rgba(0,0,0,.1);text-align:center}
 .sl-tab td img{height:40px;display:block;margin:auto}
+.sl-tab td img.sl-face{width:44px;height:44px;border-radius:50%;object-fit:cover;background:#cfe6f2;border:2px solid var(--pan1)}
 .sl-tab td.nm{text-align:left;font-family:"Shippori Mincho",serif;font-weight:800;font-size:1rem}
 .sl-tab td.nm small{display:block;font-family:sans-serif;color:#d39a00;font-size:.65rem}
 .sl-tab tbody tr{cursor:pointer;background:rgba(255,255,255,.55)}
@@ -437,7 +438,7 @@ h2 small{font-family:"Black Ops One";font-size:.75rem;letter-spacing:3px;color:v
 .bc-card.sel{border-color:var(--acc);box-shadow:0 0 12px var(--acc);transform:translateX(4px)}
 .bc-card.done{filter:grayscale(.6) brightness(.75)}
 .bc-card.dead{filter:grayscale(1) brightness(.5);cursor:default}
-.bc-face{width:64px;flex:none;background-size:330% auto;background-position:50% 5%;background-repeat:no-repeat;background-color:#2a4c63}
+.bc-face{width:68px;flex:none;background-size:cover;background-position:50% 40%;background-repeat:no-repeat;background-color:#2a4c63}
 .bc-token{width:56px;flex:none;display:flex;align-items:center;justify-content:center}
 .bc-body{flex:1;min-width:0;display:flex;flex-direction:column;padding:4px 4px 4px 0}
 .bc-body b{font-family:"Shippori Mincho",serif;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -578,3 +579,46 @@ h2 small{font-family:"Black Ops One";font-size:.75rem;letter-spacing:3px;color:v
 .br-summary b{font-family:"Saira Condensed";font-size:1.1rem;color:var(--acc)}
 .br-special{background:linear-gradient(90deg,rgba(233,196,90,.3),transparent)!important}
 .br-main button{width:100%}
+
+/* ===== 戦域の一覧（進み具合・未開放）と、戦域の地図（艦これの海域マップ） ===== */
+.area-card.locked{filter:grayscale(.8) brightness(.7)}
+.ac-pips{display:flex;gap:4px}
+.ac-pips i{width:12px;height:12px;border-radius:50%;background:#0006;border:1px solid #fff6}
+.ac-pips i.open{background:#7fd4ff}.ac-pips i.done{background:var(--acc)}.ac-pips i.boss{border-radius:2px;transform:rotate(45deg)}
+.amap{display:flex;flex-direction:column;height:528px}
+.amap-head{display:flex;align-items:center;gap:14px;padding:6px 10px;border-radius:6px 6px 0 0;background:linear-gradient(90deg,#2b3135,#3d454a);color:#fff}
+.amap-head b{font-family:"Shippori Mincho",serif;font-size:1.15rem}.amap-head span{margin-left:auto;color:var(--acc)}
+.amap-body{flex:1;display:flex;gap:0;border:2px solid #2b3135;border-top:0;border-radius:0 0 8px 8px;overflow:hidden}
+.amap-art{flex:1;height:100%;background:#cfd8c0}
+.an-path{fill:none;stroke:#fff;stroke-width:.9;stroke-dasharray:1.6 1.2;opacity:.9;filter:drop-shadow(0 0 .4px #000)}
+.an{cursor:pointer}
+.an circle{fill:#5d666b;stroke:#fff;stroke-width:.5}
+.an .an-ring{fill:none;stroke:none}
+.an text{font-size:2.6px;text-anchor:middle;fill:#fff;font-weight:700;dominant-baseline:middle;pointer-events:none}
+.an .an-lbl{font-size:2.2px;fill:#1b1f22;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:.6}
+.an.open circle{fill:#2a8fd0}.an.open .an-ring{stroke:#7fd4ff;stroke-width:.6;animation:anp 1.4s ease-out infinite;transform-box:fill-box;transform-origin:center}
+.an.done circle{fill:#c8941e}.an.boss circle{fill:#b8261c}.an.boss.done circle{fill:#c8941e}
+.an.locked{opacity:.55;cursor:default}
+.an.sel circle:not(.an-ring){stroke:var(--acc);stroke-width:1}
+.an.start circle{fill:#2b3135}
+@keyframes anp{from{transform:scale(.7);opacity:1}to{transform:scale(1.5);opacity:0}}
+.amap-info{width:330px;flex:none;padding:12px 14px;background:linear-gradient(180deg,var(--pan1),var(--pan2));color:#fff;display:flex;flex-direction:column;gap:6px;overflow:auto}
+.ai-no{font-family:"Black Ops One";font-size:1.1rem;color:var(--acc2);display:flex;gap:6px;align-items:center}
+.ai-boss,.ai-done{font-family:sans-serif;font-size:.7rem;padding:1px 8px;border-radius:8px;background:#b8261c}.ai-done{background:var(--acc);color:#2a1d05}
+.ai-name{font-family:"Shippori Mincho",serif;font-weight:800;font-size:1.45rem}
+.ai-desc{margin:0;font-size:.82rem;color:#d9efe9;line-height:1.5}
+.ai-prev{background:#0d1a1e;border-radius:6px;padding:4px;display:flex;justify-content:center}
+.ai-prev svg{width:100%;height:auto}
+.ai-meta{display:flex;justify-content:space-between;font-size:.8rem}.ai-meta b{color:var(--acc);font-family:"Saira Condensed";font-size:1.1rem}
+.ai-foes{display:flex;flex-wrap:wrap;gap:4px}
+.ai-foes span{display:flex;flex-direction:column;align-items:center;font-size:.6rem;color:#d9efe9}
+.amap-info .primary{margin-top:auto}
+.pb-power{margin-left:auto;align-self:center;font-size:.85rem;color:var(--ink2)}.pb-power b{font-family:"Saira Condensed";font-size:1.2rem;color:var(--pan2)}
+#pb-squad-tabs{display:flex;gap:8px;align-items:center}
+/* 戦闘の地図枠：戦域ごとの空気 */
+#battle[data-area="hokkaido"] .bt-map{background:radial-gradient(ellipse at center,#5c7286,#1b2733)}
+#battle[data-area="fuji"] .bt-map{background:radial-gradient(ellipse at center,#4f6a3a,#16210f)}
+#battle[data-area="kyushu"] .bt-map{background:radial-gradient(ellipse at center,#2f6f9a,#0c2233)}
+#battle[data-area="city"] .bt-map{background:radial-gradient(ellipse at center,#5a5650,#1a1816)}
+#battle[data-area="river"] .bt-map{background:radial-gradient(ellipse at center,#3a6a5a,#0f201a)}
+.bc-card.dead .bc-face{filter:grayscale(1)}

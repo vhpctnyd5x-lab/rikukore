@@ -35,6 +35,9 @@ function dmgSuffix(ratio){
   return "";
 }
 function dmgSprite(id, ratio){ return `../assets/characters/${id}${dmgSuffix(ratio)}.png${ASSET_V}`; }
+/* 顔の切り抜き（assets/faces、tools/make_faces.py で作る）。撃破は通常の顔を灰色にして使う */
+function faceImg(id, ratio){ const sfx=dmgSuffix(ratio); return `../assets/faces/${id}${sfx==="_d4"?"":sfx}.webp${ASSET_V}`; }
+function faceWide(id, ratio){ const sfx=dmgSuffix(ratio); return `../assets/faces/wide/${id}${sfx==="_d4"?"":sfx}.webp${ASSET_V}`; }
 function dmgClass(ratio){ return ratio<0.25?"dmg3":ratio<0.5?"dmg2":ratio<0.75?"dmg1":""; }
 const voiceCache=new Map(); // `${sp}|${text}` -> objectURL（合成結果を再利用して即時再生）
 let curAudio=null;
@@ -228,6 +231,7 @@ function load(){
   if(state.voiceOn===undefined) state.voiceOn=true;
   if(!state.uiTheme) state.uiTheme="green";
   if(!state.equips) state.equips={};
+  if(!state.clearedStages){ state.clearedStages=[]; (state.clearedAreas||[]).forEach(a=>(STAGES[a]||[]).forEach((x,i)=>state.clearedStages.push(stageKey(a,i)))); }
   state.squads.forEach(sq=>compactSquad(sq)); // 空き枠は前に詰める（v0.8.0 の編成画面）
   // 日付が変わったら任務リセット
   if(state.missions.date!==todayKey()){ state.missions={date:todayKey(),prog:{}}; save(); }
@@ -1015,7 +1019,7 @@ function renderSquad(){
           <span><i>⚙️</i>機動<b>${effStat(u,"mobility")}</b></span><span><i>🔭</i>射程<b>${effStat(u,"range")}</b></span>
         </div>
       </div>
-      <div class="sp-banner" style="background-image:url('${dmgSprite(c.id,r)}')"><span class="sp-cls">${CLASS_SHORT[c.class]||c.class}</span></div>
+      <div class="sp-banner" style="background-image:url('${faceWide(c.id,r)}')"><span class="sp-cls">${CLASS_SHORT[c.class]||c.class}</span></div>
       <div class="sp-exp"><i style="width:${expPct}%"></i></div>
       <div class="sp-btns"><button class="sp-btn detail" onclick="openDetail(${u.uid})">🔍 詳細</button><button class="sp-btn change" onclick="openShipList(${i})">⇄ 変更</button></div>`;
     bar.appendChild(d);
@@ -1039,7 +1043,7 @@ function openShipList(slot){
   document.getElementById("sl-table").innerHTML=`<table class="sl-tab"><thead><tr><th></th><th>兵科</th><th>名前</th><th>Lv</th><th>耐久</th><th>火力</th><th>装甲</th><th>機動</th><th>射程</th><th>状態</th></tr></thead><tbody>`+
     rows.map(u=>{ const c=charOf(u), where=state.squads.findIndex(sq=>sq.includes(u.uid)), rep=u.repairEnd>Date.now();
       return `<tr class="${u.uid===cur?"cur":""}${rep?" rep":""}" onclick="placeInSlot(${u.uid},${slot})">
-        <td><img src="../assets/chibi/${c.id}.png${ASSET_V}" alt=""></td><td>${CLASS_SHORT[c.class]||c.class}</td>
+        <td><img class="sl-face" src="${faceImg(c.id,u.hp/u.maxhp)}" alt=""></td><td>${CLASS_SHORT[c.class]||c.class}</td>
         <td class="nm">${c.name}<small>${"★".repeat(c.rarity)}</small></td><td>${u.level}</td>
         <td><span class="mini-hp${u.hp/u.maxhp<0.5?" warn":""}"><i style="width:${u.hp/u.maxhp*100}%"></i></span>${u.hp}/${u.maxhp}</td>
         <td>${effStat(u,"fire")}</td><td>${effStat(u,"armor")}</td><td>${effStat(u,"mobility")}</td><td>${effStat(u,"range")}</td>
