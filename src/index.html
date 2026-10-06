@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Saira+Condensed:wght@500;700&family=Shippori+Mincho:wght@600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=0.6.0">
+<link rel="stylesheet" href="style.css?v=0.7.0">
 </head>
 <body>
 <div class="scanlines"></div>
@@ -58,23 +58,36 @@
       <div id="port-bg"></div>
       <img id="secretary-img" alt="秘書隊員">
 
-      <!-- 左：司令官パネル -->
-      <aside id="port-command">
-        <div class="pc-officer">
-          <span class="pc-title">司令官</span>
-          <span class="pc-lv">Lv.<b id="pc-lv">1</b></span>
+      <!-- 上：司令部の帯（艦これの母港上部） -->
+      <div id="kc-head">
+        <div class="kh-officer">
+          <span class="kh-rank" id="kh-rank">三等陸尉</span>
+          <b class="kh-name" id="kh-name">司令官</b>
+          <span class="kh-lv">Lv.<b id="pc-lv">1</b></span>
+          <div class="pc-exp"><i id="pc-expbar"></i><small id="pc-exptxt"></small></div>
         </div>
-        <div class="pc-exp"><i id="pc-expbar"></i><small id="pc-exptxt"></small></div>
         <ul id="pc-stats"></ul>
-        <div class="pc-actions">
-          <button class="pc-act" data-tab="squad"><i>🎖️</i><span>編成</span></button>
-          <button class="pc-act" data-tab="sortie"><i>⚔️</i><span>出撃</span></button>
-          <button class="pc-act" data-tab="arsenal"><i>🏭</i><span>工廠</span></button>
-          <button class="pc-act" data-tab="mission"><i>📋</i><span>任務</span></button>
-        </div>
-      </aside>
+        <nav class="kh-menu">
+          <button class="kh-btn" data-tab="config" data-scroll="records" title="戦績"><i>📊</i><span>戦績</span></button>
+          <button class="kh-btn" data-tab="dex" title="図鑑"><i>📖</i><span>図鑑</span></button>
+          <button class="kh-btn" data-tab="shop" title="購買部"><i>🛒</i><span>購買部</span></button>
+          <button class="kh-btn" data-tab="config" data-scroll="theme-list" title="模様替え"><i>🪑</i><span>模様替え</span></button>
+          <button class="kh-btn kh-mission" data-tab="mission" title="任務"><i>📋</i><span>任務</span><em id="kh-badge" class="hidden">!</em></button>
+        </nav>
+      </div>
 
-      <!-- 秘書ネームプレート＆セリフ -->
+      <!-- 左：母港メニュー（出撃を真ん中に、5つの丸で囲む） -->
+      <div id="kc-ring">
+        <span class="kr-track"></span>
+        <button class="kc-sortie" data-tab="sortie"><span class="ks-gear"></span><span class="ks-face"><b>出撃</b><small>SORTIE</small></span></button>
+        <button class="kc-sub" style="--a:-90deg" data-tab="squad"><i>🎖️</i><b>編成</b><small>FORMATION</small></button>
+        <button class="kc-sub" style="--a:-18deg" data-tab="shop"><i>⛽</i><b>補給</b><small>SUPPLY</small></button>
+        <button class="kc-sub" style="--a:54deg" data-tab="arsenal" data-sub="remodel"><i>⭐</i><b>改装</b><small>REMODEL</small></button>
+        <button class="kc-sub" style="--a:126deg" data-tab="arsenal" data-sub="repair"><i>🔧</i><b>整備</b><small>REPAIR</small></button>
+        <button class="kc-sub" style="--a:198deg" data-tab="arsenal" data-sub="build"><i>🏭</i><b>工廠</b><small>ARSENAL</small></button>
+      </div>
+
+      <!-- 秘書の名札とセリフ -->
       <div id="port-overlay">
         <div id="sec-nameplate">
           <span id="sec-nation"></span>
@@ -85,12 +98,8 @@
         <div id="sec-speech"><span id="base-msg"></span></div>
       </div>
 
-      <!-- 右下：ユーティリティ -->
       <div id="port-utils">
         <button class="pu" id="btn-changesec" title="秘書交代">🔄</button>
-        <button class="pu" data-tab="dex" title="図鑑">📖</button>
-        <button class="pu" data-tab="shop" title="商店">🛒</button>
-        <button class="pu" data-tab="config" title="設定">⚙️</button>
       </div>
     </div>
     <!-- 秘書選択 -->
@@ -300,7 +309,7 @@
 
 <footer>陸これ（仮） v0.5.2 — 参考: りっくじあーす</footer>
 
-<script src="../data/characters.js?v=0.6.0"></script>
-<script src="game.js?v=0.6.0"></script>
+<script src="../data/characters.js?v=0.7.0"></script>
+<script src="game.js?v=0.7.0"></script>
 </body>
 </html>

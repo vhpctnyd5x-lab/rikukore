@@ -1,4 +1,4 @@
-/* 陸これ（仮） v0.6.0 — フル機能版 */
+/* 陸これ（仮） v0.7.0 — フル機能版 */
 'use strict';
 
 const CLASS_ICON={"MBT":"🛡️","重戦車":"🐗","中戦車":"🚙","軽戦車":"🏍️","機動戦闘車":"🚙","装甲戦闘車":"🚐","自走砲":"🎯","対空":"🚀","偵察":"🛰️","工兵":"🔧","ヘリ":"🚁","歩兵戦車":"🛡️"};
@@ -281,6 +281,7 @@ function bindTabs(){
       document.querySelectorAll("main > .tab").forEach(x=>x.classList.remove("active"));
       b.classList.add("active");
       document.getElementById("tab-"+b.dataset.tab).classList.add("active");
+      document.body.classList.toggle("on-port", b.dataset.tab==="base"); // 母港ではタブの帯を隠す（艦これ式）
       renderTab(b.dataset.tab);
     };
   });
@@ -308,8 +309,14 @@ function currentSub(){ const a=document.querySelector("#arsenal-nav button.activ
 
 /* ===== ボタン ===== */
 function bindButtons(){
-  document.querySelectorAll("#port-command .pc-act[data-tab], #port-utils .pu[data-tab]").forEach(b=>{
-    b.onclick=()=>document.querySelector(`#tabs button[data-tab="${b.dataset.tab}"]`).click();
+  // 母港のボタン：data-tab へ移り、data-sub（工廠の中の画面）・data-scroll（設定の中の場所）があればそこへ
+  document.querySelectorAll("#port button[data-tab]").forEach(b=>{
+    b.onclick=()=>{
+      document.querySelector(`#tabs button[data-tab="${b.dataset.tab}"]`).click();
+      if(b.dataset.sub){ const sb=document.querySelector(`#arsenal-nav button[data-sub="${b.dataset.sub}"]`); if(sb) sb.click(); }
+      if(b.dataset.scroll){ const el=document.getElementById(b.dataset.scroll); if(el) el.scrollIntoView({behavior:"smooth",block:"center"}); }
+      else window.scrollTo({top:0});
+    };
   });
   document.getElementById("btn-changesec").onclick=openSecretarySelect;
   document.getElementById("modal-close").onclick=closeDetail;
@@ -397,7 +404,7 @@ function openSecretarySelect(){
 function doRename(){
   const cur=state.player.name;
   const v=prompt("司令官名を入力してください（最大12文字）",cur);
-  if(v&&v.trim()){ state.player.name=v.trim().slice(0,12); save(); renderCmd(); toast(`司令官名を「${state.player.name}」に変更`); }
+  if(v&&v.trim()){ state.player.name=v.trim().slice(0,12); save(); renderCmd(); renderBaseStats(); toast(`司令官名を「${state.player.name}」に変更`); }
 }
 
 /* ===== 図鑑 ===== */
@@ -682,7 +689,7 @@ function bumpMission(type){
     if(!p.claimed){ p.prog=Math.min(m.need,(p.prog||0)+1); }
     state.missions.prog[m.id]=p;
   });
-  save();
+  save(); renderBaseStats();
 }
 function renderMissions(){
   const l=document.getElementById("mission-list"); l.innerHTML="";
@@ -707,7 +714,7 @@ function claimMission(id){
   if(m.reward.item) addItem(m.reward.item,1);
   if(m.reward.res){ for(const k in m.reward.res) state.res[k]=(state.res[k]||0)+m.reward.res[k]; } // 補給はミッション報酬で
   gainCmdExp(50); p.claimed=true; save();
-  renderRes(); renderCmd(); renderMissions();
+  renderRes(); renderCmd(); renderMissions(); renderBaseStats();
   const rs=m.reward.res?" ＋"+Object.entries(m.reward.res).map(([k,v])=>`${resJP(k)}+${v}`).join(" "):"";
   toast(`📋 任務「${m.name}」達成！💴${m.reward.gold||0}${m.reward.item?` ＋${ITEMS[m.reward.item].name}`:""}${rs}`);
 }
@@ -1451,7 +1458,7 @@ function renderDex(){
 }
 
 /* ===== 共通描画 ===== */
-function renderAll(){ applyUITheme(); renderCmd(); renderRes(); renderPort(); renderSquad(); renderRoster(); applyTheme(); }
+function renderAll(){ document.body.classList.toggle("on-port", isActive("base")); applyUITheme(); renderCmd(); renderRes(); renderPort(); renderSquad(); renderRoster(); applyTheme(); }
 function renderCmd(){
   document.getElementById("cmd-name").textContent=state.player.name;
   document.getElementById("cmd-lv").textContent="Lv."+state.player.level;
@@ -1466,8 +1473,15 @@ function renderRes(){
   document.getElementById("r-parts").textContent=state.res.parts;
   document.getElementById("r-gold").textContent=state.res.gold;
 }
+/* 司令官の階級（艦これの提督の階級にあたる）。5レベルごとに上がる */
+const RANKS=["三等陸尉","二等陸尉","一等陸尉","三等陸佐","二等陸佐","一等陸佐","陸将補","陸将"];
+function rankOf(lv){ return RANKS[Math.min(RANKS.length-1,Math.floor((lv-1)/5))]; }
+function claimableMissions(){ return MISSIONS.filter(m=>{ const p=state.missions.prog[m.id]; return p&&p.prog>=m.need&&!p.claimed; }).length; }
 function renderBaseStats(){
-  // 司令官レベル / 経験値（司令室の左パネル）
+  // 司令官の名前・階級・レベル / 経験値（母港の上の帯）
+  const kn=document.getElementById("kh-name"); if(kn) kn.textContent=state.player.name;
+  const kr=document.getElementById("kh-rank"); if(kr) kr.textContent=rankOf(state.player.level);
+  const kb=document.getElementById("kh-badge"); if(kb){ const n=claimableMissions(); kb.textContent=n; kb.classList.toggle("hidden",!n); }
   const lv=document.getElementById("pc-lv");
   if(lv){
     lv.textContent=state.player.level;
@@ -1478,10 +1492,10 @@ function renderBaseStats(){
   const e=document.getElementById("pc-stats"); if(!e) return;
   const fill=activeSquad().filter(Boolean).length;
   e.innerHTML=
-    `<li><span class="pl">🎖 保有車輌</span><b>${state.owned.length}</b></li>`+
-    `<li><span class="pl">🚩 第${state.activeSquad+1}小隊</span><b>${fill}/${SQUAD_SIZE}</b></li>`+
-    `<li><span class="pl">🔥 総戦闘力</span><b>${squadPower()}</b></li>`+
-    `<li><span class="pl">📖 図鑑収集</span><b>${state.dex.length}/${DB.characters.length}</b></li>`;
+    `<li><span class="pl">保有車輌</span><b>${state.owned.length}</b></li>`+
+    `<li><span class="pl">第${state.activeSquad+1}小隊</span><b>${fill}/${SQUAD_SIZE}</b></li>`+
+    `<li><span class="pl">総戦闘力</span><b>${squadPower()}</b></li>`+
+    `<li><span class="pl">図鑑</span><b>${state.dex.length}/${DB.characters.length}</b></li>`;
 }
 function rarityClass(u){ const r=charOf(u).rarity; return r>=5?" r5":r>=4?" r4":r>=3?" r3":""; }
 function cardInner(u){ const c=charOf(u),chibi=`../assets/chibi/${c.id}.png${ASSET_V}`;

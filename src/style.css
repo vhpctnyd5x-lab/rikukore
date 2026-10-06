@@ -1200,3 +1200,96 @@ button:active{transform:translateY(1px);box-shadow:inset 0 1px 0 rgba(255,255,25
   #port-overlay{max-width:none;right:58px}
   #secretary-img{left:70%}
 }
+
+/* ============================================================
+   v0.7.0 — 母港を艦これ式に（出撃を真ん中に5つの丸、上に司令部の帯、右に秘書）
+   ============================================================ */
+body.on-port #tabs{display:none}
+#port{height:clamp(560px,58vw,700px);min-height:0}
+#secretary-img{left:70%;height:94%;max-height:none}
+
+/* --- 上：司令部の帯 --- */
+#kc-head{position:absolute;left:0;right:0;top:0;z-index:4;display:flex;align-items:center;gap:14px;
+  padding:8px 14px;min-height:58px;
+  background:linear-gradient(180deg,rgba(10,13,8,.94),rgba(10,13,8,.78));
+  border-bottom:2px solid var(--gold);box-shadow:0 4px 18px rgba(0,0,0,.5)}
+#kc-head::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:3px;
+  background:repeating-linear-gradient(90deg,var(--gold) 0 18px,transparent 18px 26px);opacity:.45}
+.kh-officer{display:grid;grid-template-columns:auto auto auto;align-items:baseline;column-gap:8px;row-gap:3px;min-width:220px}
+.kh-rank{font-size:.72rem;color:#0d0f08;background:var(--gold2);padding:1px 7px;border-radius:3px;font-weight:700;letter-spacing:1px}
+.kh-name{font-family:"Shippori Mincho",serif;font-size:1.1rem;color:#fff5d4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.kh-lv{font-family:"Saira Condensed";color:#cdd0bf;font-size:.9rem}
+.kh-lv b{font-family:"Black Ops One";color:var(--gold2);font-size:1.25rem}
+.kh-officer .pc-exp{grid-column:1/-1;height:6px}
+.kh-officer .pc-exp small{display:none}
+#kc-head #pc-stats{flex-direction:row;gap:6px;border:0;border-radius:0;overflow:visible}
+#kc-head #pc-stats li{flex-direction:column;align-items:flex-start;gap:0;padding:3px 10px;border-radius:4px;
+  background:rgba(255,255,255,.05)!important;border-left:2px solid var(--gold);font-size:.66rem;color:#aeb49a}
+#kc-head #pc-stats b{font-size:1rem;line-height:1.1}
+.kh-menu{margin-left:auto;display:flex;gap:6px}
+.kh-btn{position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:62px;
+  padding:5px 8px;border-radius:6px;clip-path:none;font-size:.72rem;
+  background:linear-gradient(180deg,rgba(60,70,44,.95),rgba(24,29,18,.95));
+  border:1px solid rgba(255,238,178,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.15)}
+.kh-btn i{font-size:1.15rem;font-style:normal;line-height:1.1}
+.kh-btn:hover{background:linear-gradient(180deg,var(--accent2),var(--accent));border-color:var(--gold2)}
+.kh-btn em{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:9px;padding:0 4px;
+  font-style:normal;font-size:.7rem;font-weight:700;line-height:18px;background:var(--accent2);color:#fff;
+  box-shadow:0 0 8px var(--accent2);animation:khpulse 1.2s ease-in-out infinite}
+@keyframes khpulse{50%{transform:scale(1.18)}}
+
+/* --- 左：母港メニュー（丸） --- */
+#kc-ring{--R:128px;--S:92px;--B:150px;position:absolute;z-index:3;left:calc(var(--R) + var(--S)/2 + 26px);top:calc(50% + 6px);
+  width:0;height:0}
+.kr-track{position:absolute;left:calc(-1*var(--R));top:calc(-1*var(--R));width:calc(2*var(--R));height:calc(2*var(--R));
+  border-radius:50%;border:2px dashed rgba(240,214,120,.35);box-shadow:0 0 0 10px rgba(0,0,0,.18),inset 0 0 40px rgba(0,0,0,.35)}
+.kc-sortie,.kc-sub{position:absolute;padding:0;border-radius:50%;clip-path:none;cursor:pointer}
+.kc-sortie{width:var(--B);height:var(--B);left:calc(-1*var(--B)/2);top:calc(-1*var(--B)/2);
+  background:radial-gradient(circle at 35% 30%,var(--accent2),var(--accent) 55%,#5a1a12);
+  border:4px solid var(--gold);box-shadow:0 0 0 4px rgba(0,0,0,.55),0 0 26px rgba(232,93,74,.55),inset 0 4px 10px rgba(255,255,255,.25)}
+.ks-gear{position:absolute;inset:-14px;border-radius:50%;border:3px dashed var(--gold2);opacity:.7;
+  animation:ksrot 14s linear infinite;pointer-events:none}
+@keyframes ksrot{to{transform:rotate(360deg)}}
+.ks-face{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
+.ks-face b{font-family:"Shippori Mincho",serif;font-weight:800;font-size:2.3rem;color:#fff;
+  text-shadow:0 2px 0 #5a1a12,0 0 12px rgba(0,0,0,.6);letter-spacing:4px;line-height:1}
+.ks-face small{font-family:"Black Ops One";font-size:.78rem;letter-spacing:3px;color:var(--gold2);margin-top:4px}
+.kc-sortie:hover{transform:scale(1.05);box-shadow:0 0 0 4px rgba(0,0,0,.55),0 0 40px rgba(232,93,74,.85)}
+.kc-sub{width:var(--S);height:var(--S);left:calc(-1*var(--S)/2);top:calc(-1*var(--S)/2);
+  transform:rotate(var(--a)) translate(var(--R)) rotate(calc(-1*var(--a)));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;
+  background:radial-gradient(circle at 35% 30%,#5d6e43,#2a3320 60%,#14180f);
+  border:3px solid rgba(240,214,120,.75);box-shadow:0 0 0 3px rgba(0,0,0,.5),0 6px 14px rgba(0,0,0,.45),inset 0 3px 8px rgba(255,255,255,.18)}
+.kc-sub i{font-style:normal;font-size:1.45rem;line-height:1.1}
+.kc-sub b{font-family:"Shippori Mincho",serif;font-size:1.05rem;color:#fff5d4;line-height:1.1}
+.kc-sub small{font-family:"Saira Condensed";font-size:.56rem;letter-spacing:1px;color:var(--gold2)}
+.kc-sub:hover{transform:rotate(var(--a)) translate(var(--R)) rotate(calc(-1*var(--a))) scale(1.1);
+  background:radial-gradient(circle at 35% 30%,var(--accent2),var(--accent) 60%,#5a1a12);border-color:var(--gold2)}
+.kc-sub:active,.kc-sortie:active{filter:brightness(.85)}
+
+/* --- 秘書の名札とセリフ：左下（丸の下） --- */
+#port-overlay{left:16px;bottom:14px;max-width:min(400px,40%)}
+#sec-nameplate{padding:6px 12px;margin-bottom:6px;flex-direction:row;flex-wrap:wrap;align-items:baseline;column-gap:8px}
+#sec-name{font-size:1.35rem}
+#sec-speech{font-size:.86rem;padding:9px 13px}
+#port-utils{top:76px;bottom:auto;right:14px}
+
+/* --- 狭い画面 --- */
+@media(max-width:900px){
+  .kh-btn span{display:none}.kh-btn{min-width:40px}
+  #kc-head #pc-stats li:nth-child(n+3){display:none}
+}
+@media(max-width:720px){
+  #port{height:600px}
+  #kc-head{flex-wrap:wrap;gap:8px;padding:6px 8px}
+  .kh-officer{min-width:0}
+  #kc-head #pc-stats{display:none}
+  .kh-menu{margin-left:0;width:100%;justify-content:space-between}
+  .kh-btn{flex:1}
+  #kc-ring{--R:86px;--S:64px;--B:104px;left:calc(var(--R) + var(--S)/2 + 8px);top:255px}
+  .ks-face b{font-size:1.6rem;letter-spacing:2px}.ks-face small{font-size:.6rem}
+  .kc-sub i{font-size:1.05rem}.kc-sub b{font-size:.82rem}.kc-sub small{display:none}
+  #secretary-img{left:74%;height:72%;max-width:62%}
+  #port-overlay{left:8px;right:8px;bottom:8px;max-width:none}
+  #port-utils{top:118px;right:8px}
+}
