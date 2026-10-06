@@ -1,4 +1,4 @@
-/* 陸これ（仮） v0.7.0 — フル機能版 */
+/* 陸これ（仮） v0.8.0 — フル機能版（戦闘は battle.js） */
 'use strict';
 
 const CLASS_ICON={"MBT":"🛡️","重戦車":"🐗","中戦車":"🚙","軽戦車":"🏍️","機動戦闘車":"🚙","装甲戦闘車":"🚐","自走砲":"🎯","対空":"🚀","偵察":"🛰️","工兵":"🔧","ヘリ":"🚁","歩兵戦車":"🛡️"};
@@ -189,7 +189,7 @@ async function init(){
   DB = window.CHARDB || await fetch("../data/characters.json").then(r=>r.json());
   load();
   preloadArt();
-  bindTabs(); bindButtons();
+  bindTabs(); bindButtons(); fitStage();
   startClock();
   renderAll();
   resetIdle();
@@ -228,6 +228,7 @@ function load(){
   if(state.voiceOn===undefined) state.voiceOn=true;
   if(!state.uiTheme) state.uiTheme="green";
   if(!state.equips) state.equips={};
+  state.squads.forEach(sq=>compactSquad(sq)); // 空き枠は前に詰める（v0.8.0 の編成画面）
   // 日付が変わったら任務リセット
   if(state.missions.date!==todayKey()){ state.missions={date:todayKey(),prog:{}}; save(); }
   applyAutoSupply(true);
@@ -273,31 +274,33 @@ function teamAbility(units,type){ return units.reduce((m,u)=>u.abType===type?Mat
 const RANGE_LONG=75;   // 射程がこれ以上なら2マス先まで撃てる（隣接しないので反撃を受けない）
 function critRate(u){ return Math.min(0.25,(effStat(u,"luck")+effStat(u,"scout"))/1000); } // 運＋索敵で会心
 
-/* ===== タブ ===== */
+/* ===== 画面の切り替え（艦これ式：上の帯・左の献立・母港の丸から） ===== */
+const SCREEN_NAME={base:"母港",squad:"編成",sortie:"出撃",arsenal:"工廠",mission:"任務",dex:"図鑑",shop:"補給",config:"設定"};
+let curTab="base";
+function showTab(t,sub,scroll){
+  if(battle) return; // 戦闘中は動かない
+  curTab=t;
+  document.querySelectorAll("#screen > .tab").forEach(x=>x.classList.toggle("active",x.id==="tab-"+t));
+  document.getElementById("stage").dataset.screen=t;
+  document.getElementById("scr-name").textContent=SCREEN_NAME[t]||"";
+  document.querySelectorAll("#sidemenu [data-go]").forEach(b=>b.classList.toggle("active",b.dataset.go===t&&(!b.dataset.sub||b.dataset.sub===sub)));
+  if(t==="arsenal"&&sub) selectSub(sub);
+  renderTab(t);
+  const scr=document.getElementById("screen"); scr.scrollTop=0;
+  if(scroll){ const el=document.getElementById(scroll); if(el) setTimeout(()=>el.scrollIntoView({behavior:"smooth",block:"center"}),30); }
+}
+function selectSub(sub){
+  document.querySelectorAll("#arsenal-nav button").forEach(x=>x.classList.toggle("active",x.dataset.sub===sub));
+  document.querySelectorAll("#tab-arsenal .subtab").forEach(x=>x.classList.toggle("active",x.id==="sub-"+sub));
+  renderArsenal(sub);
+}
 function bindTabs(){
-  document.querySelectorAll("#tabs button").forEach(b=>{
-    b.onclick=()=>{
-      document.querySelectorAll("#tabs button").forEach(x=>x.classList.remove("active"));
-      document.querySelectorAll("main > .tab").forEach(x=>x.classList.remove("active"));
-      b.classList.add("active");
-      document.getElementById("tab-"+b.dataset.tab).classList.add("active");
-      document.body.classList.toggle("on-port", b.dataset.tab==="base"); // 母港ではタブの帯を隠す（艦これ式）
-      renderTab(b.dataset.tab);
-    };
-  });
-  document.querySelectorAll("#arsenal-nav button").forEach(b=>{
-    b.onclick=()=>{
-      document.querySelectorAll("#arsenal-nav button").forEach(x=>x.classList.remove("active"));
-      document.querySelectorAll("#tab-arsenal .subtab").forEach(x=>x.classList.remove("active"));
-      b.classList.add("active");
-      document.getElementById("sub-"+b.dataset.sub).classList.add("active");
-      renderArsenal(b.dataset.sub);
-    };
-  });
+  document.querySelectorAll("[data-go]").forEach(b=>{ b.onclick=()=>showTab(b.dataset.go,b.dataset.sub,b.dataset.scroll); });
+  document.querySelectorAll("#arsenal-nav button").forEach(b=>{ b.onclick=()=>selectSub(b.dataset.sub); });
 }
 function renderTab(t){
   if(t==="base") renderPort();
-  else if(t==="squad"){ renderSquad(); renderRoster(); }
+  else if(t==="squad") renderSquad();
   else if(t==="sortie") renderSortie();
   else if(t==="arsenal") renderArsenal(currentSub());
   else if(t==="mission") renderMissions();
@@ -305,33 +308,34 @@ function renderTab(t){
   else if(t==="shop") renderShop();
   else if(t==="config") renderConfig();
 }
+/* ===== 1200×720 の画面を窓に合わせる。縦持ちは「横にして」と出す ===== */
+function fitStage(){
+  const w=window.innerWidth, h=window.innerHeight, k=Math.min(w/1200,h/720);
+  const st=document.getElementById("stage");
+  st.style.transform=`translate(-50%,-50%) scale(${k})`;
+  document.body.classList.toggle("portrait", h>w && w<900);
+}
+async function goLandscape(){
+  try{ await document.documentElement.requestFullscreen(); }catch(e){}
+  try{ await screen.orientation.lock("landscape"); }catch(e){ toast("この端末では自動で横にできません。端末を横向きにしてください"); }
+}
 function currentSub(){ const a=document.querySelector("#arsenal-nav button.active"); return a?a.dataset.sub:"build"; }
 
 /* ===== ボタン ===== */
 function bindButtons(){
-  // 母港のボタン：data-tab へ移り、data-sub（工廠の中の画面）・data-scroll（設定の中の場所）があればそこへ
-  document.querySelectorAll("#port button[data-tab]").forEach(b=>{
-    b.onclick=()=>{
-      document.querySelector(`#tabs button[data-tab="${b.dataset.tab}"]`).click();
-      if(b.dataset.sub){ const sb=document.querySelector(`#arsenal-nav button[data-sub="${b.dataset.sub}"]`); if(sb) sb.click(); }
-      if(b.dataset.scroll){ const el=document.getElementById(b.dataset.scroll); if(el) el.scrollIntoView({behavior:"smooth",block:"center"}); }
-      else window.scrollTo({top:0});
-    };
-  });
   document.getElementById("btn-changesec").onclick=openSecretarySelect;
   document.getElementById("modal-close").onclick=closeDetail;
-  document.getElementById("modal").onclick=e=>{ if(e.target.id==="modal") closeDetail(); };
-  const ep=document.getElementById("equip-picker");
-  if(ep) ep.onclick=e=>{ if(e.target.id==="equip-picker") ep.classList.add("hidden"); };
   document.getElementById("modal-toggle").onclick=()=>{ if(modalUid!=null){ toggleSquad(modalUid); refreshToggleBtn(); } };
   const ds=document.getElementById("d-steel"),dp=document.getElementById("d-parts");
   ds.oninput=()=>document.getElementById("d-steel-v").textContent=ds.value;
   dp.oninput=()=>document.getElementById("d-parts-v").textContent=dp.value;
   document.getElementById("btn-deploy").onclick=doDeploy;
-  document.getElementById("btn-area-back").onclick=areaBack;
-  document.getElementById("btn-startbattle").onclick=startBattle;
-  document.getElementById("bc-endturn").onclick=endPlayerTurn;
-  document.getElementById("bc-quit").onclick=()=>{ if(confirm("撤退しますか？戦果は失われます（損傷はそのまま残ります）")){ stopBattle(); syncBattleHp(); battle=null; renderPreBattle(); renderRoster(); toast("撤退しました。損傷した隊員は工廠で修理を。"); } };
+  bindBattle();
+  document.getElementById("btn-landscape").onclick=goLandscape;
+  document.getElementById("sq-clear").onclick=clearEscorts;
+  document.getElementById("sq-name-input").onchange=e=>{ if(!state.squadNames) state.squadNames=[]; state.squadNames[state.activeSquad]=e.target.value.trim().slice(0,10); save(); };
+  ["modal","ship-list","sec-select","equip-picker"].forEach(id=>{ const o=document.getElementById(id); o.addEventListener("click",e=>{ if(e.target===o){ if(id==="modal") closeDetail(); else o.classList.add("hidden"); } }); });
+  window.addEventListener("resize",fitStage);
   const si=document.getElementById("secretary-img");
   if(si) si.onclick=()=>{ const u=secretaryUnit(); if(!u)return; const c=charOf(u);
     si.classList.remove("tapped"); void si.offsetWidth; si.classList.add("tapped");
@@ -355,8 +359,9 @@ function bindButtons(){
 function startClock(){
   const upd=()=>{
     const d=new Date();
-    document.getElementById("clock").textContent=
-      `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+    const hm=`${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`, md=`${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
+    document.querySelectorAll(".clock").forEach(e=>e.textContent=hm);
+    document.querySelectorAll(".clock-date").forEach(e=>e.textContent=md);
     tickCommissions();
     tickRepairs();
     applyAutoSupply();
@@ -731,561 +736,32 @@ function toggleSquad(uid){
     const free=sq.indexOf(null); if(free<0){ toast(`小隊は満員です（最大${SQUAD_SIZE}名）`); return; }
     sq[free]=uid;
   }
-  save(); renderSquad(); renderRoster();
+  state.squads.forEach(compactSquad);
+  save(); renderSquad();
 }
 /* ドラッグ&ドロップ用：スロットへ配置 */
 function placeInSlot(uid, slotIdx){
   const sq=activeSquad();
-  // 既に他の枠/他小隊にいたら除去
-  state.squads.forEach(s=>{ const i=s.indexOf(uid); if(i>=0) s[i]=null; });
-  // スロットに既存ユニットがいれば押し出し（入替）
-  sq[slotIdx]=uid;
-  save(); renderSquad(); renderRoster();
+  if(uid==null){ sq[slotIdx]=null; }
+  else{
+    const prev=sq[slotIdx], from=sq.indexOf(uid);
+    if(from>=0){ sq[from]=prev; sq[slotIdx]=uid; }            // 同じ小隊の中なら入れ替え
+    else{ state.squads.forEach(s=>{ const i=s.indexOf(uid); if(i>=0) s[i]=null; }); sq[slotIdx]=uid; }
+  }
+  state.squads.forEach(compactSquad);
+  save(); closeShipList(); renderSquad();
+  if(uid!=null){ const c=charOf(findUnit(uid)); toast(`${c.name} を${squadName(state.activeSquad)}に編入`); }
 }
 function swapSlots(a,b){ const sq=activeSquad(); const t=sq[a]; sq[a]=sq[b]; sq[b]=t; save(); renderSquad(); }
-function setActiveSquad(i){ state.activeSquad=i; save(); renderSquad(); renderRoster(); }
+function setActiveSquad(i){ state.activeSquad=i; save(); renderSquad(); }
 
-/* ===== 出撃（ノードマップ式） =====
-   AREAS: りっくじあーす風の戦域。各戦域はノード(地点)とエッジ(進路)で構成。
-   restrict: 出撃制限（将来用）。classes/nations/maxRarity を指定すると該当外は出撃不可。 */
-/* 地形：マス1つ1つの情景。tile=マスの色, def=そのマスに居る車の被ダメ倍率(低いほど堅い) */
-const TERRAINS={
-  plain:{ name:"平野", icon:"🌿", tile:"#5d7a39", def:1.0, note:"見通し良好の草原" },
-  snow:{ name:"雪原", icon:"❄️", tile:"#aeb9c6", def:0.95, note:"深雪。機動が鈍る" },
-  city:{ name:"市街地", icon:"🏚️", tile:"#7a7064", def:0.78, note:"瓦礫が遮蔽になる。堅い" },
-  river:{ name:"河川", icon:"🌊", tile:"#3f6f80", def:1.12, note:"渡河中は無防備" },
-  coast:{ name:"海岸", icon:"🏖️", tile:"#b89a5e", def:1.0, note:"砂浜と防潮堤" },
-  road:{ name:"舗装路", icon:"🛣️", tile:"#5a5550", def:1.05, note:"進軍は速いが隠れられない" },
-  forest:{ name:"森林", icon:"🌲", tile:"#3d5a32", def:0.85, note:"木立の遮蔽" },
-  urban_ruin:{ name:"廃墟", icon:"🏙️", tile:"#5a514a", def:0.72, note:"崩れた市街。最も堅い" },
-};
-/* 戦域ごとのマス構成（出やすい地形セット） */
-const AREA_TILESET={
-  hokkaido:["plain","plain","snow","forest","plain"],
-  fuji:["plain","plain","forest","road","plain"],
-  kyushu:["coast","plain","city","road","coast"],
-  city:["urban_ruin","city","road","city","urban_ruin"],
-  river:["river","plain","river","forest","plain"],
-};
-
-const AREAS=[
-  { id:"hokkaido", name:"戦域I 北部方面隊：北海道大演習場", desc:"機甲科の聖地。広大な原野で機動戦を学べ。",
-    bg:"snow", terrain:"snow", restrict:null,
-    nodes:[
-      {id:"S",x:8,y:50,type:"start",label:"出発"},
-      {id:"A",x:30,y:28,type:"battle",power:120,label:"A 偵察線"},
-      {id:"B",x:30,y:72,type:"battle",power:140,label:"B 渡渉点"},
-      {id:"C",x:52,y:50,type:"resource",label:"C 補給所"},
-      {id:"D",x:73,y:34,type:"battle",power:210,label:"D 高地"},
-      {id:"Z",x:91,y:55,type:"boss",power:320,label:"Z 敵主力"},
-    ],
-    edges:[["S","A"],["S","B"],["A","C"],["B","C"],["C","D"],["D","Z"]] },
-  { id:"fuji", name:"戦域II 東部方面隊：富士総合火力演習場", desc:"総火演の舞台。火力と連携が試される。",
-    bg:"od", terrain:"plain", restrict:{note:"中・重戦車の活躍が見込まれる戦域"},
-    nodes:[
-      {id:"S",x:8,y:50,type:"start",label:"出発"},
-      {id:"A",x:28,y:42,type:"battle",power:260,label:"A 演習開始線"},
-      {id:"C",x:48,y:24,type:"resource",label:"C 弾薬集積"},
-      {id:"B",x:50,y:66,type:"battle",power:300,label:"B 射場"},
-      {id:"D",x:71,y:46,type:"battle",power:400,label:"D 突破口"},
-      {id:"Z",x:91,y:52,type:"boss",power:540,label:"Z 機甲連隊"},
-    ],
-    edges:[["S","A"],["A","C"],["A","B"],["C","D"],["B","D"],["D","Z"]] },
-  { id:"kyushu", name:"戦域III 西部方面隊：九州防衛線", desc:"離島防衛の最前線。砂浜と防潮堤の戦い。",
-    bg:"desert", terrain:"coast", restrict:null,
-    nodes:[
-      {id:"S",x:8,y:50,type:"start",label:"出発"},
-      {id:"A",x:30,y:55,type:"battle",power:420,label:"A 上陸地点"},
-      {id:"B",x:50,y:32,type:"battle",power:480,label:"B 市街地"},
-      {id:"C",x:52,y:72,type:"resource",label:"C 野戦病院"},
-      {id:"D",x:72,y:52,type:"battle",power:600,label:"D 司令部前"},
-      {id:"Z",x:91,y:50,type:"boss",power:780,label:"Z 敵総司令"},
-    ],
-    edges:[["S","A"],["A","B"],["A","C"],["B","D"],["C","D"],["D","Z"]] },
-  { id:"city", name:"戦域IV 市街戦：包囲下の工業都市", desc:"瓦礫と化した街路。近接の死闘。重装甲が物を言う。",
-    bg:"od", terrain:"urban_ruin", restrict:null, nodes:[], edges:[] },
-  { id:"river", name:"戦域V 渡河作戦：大河の防衛線", desc:"濁流の渡河点を突破せよ。全車が減速する難所。",
-    bg:"od", terrain:"river", restrict:null, nodes:[], edges:[] },
-];
-
-/* 敵テンプレ（プレースホルダー図形）。今後 空・ミサイル等を追加予定 */
-const ENEMY_TYPES={
-  circle:{shape:"circle",name:"敵歩兵",hp:30,atk:8,def:3,spd:0.9,color:"#c0392b"},
-  triangle:{shape:"triangle",name:"敵軽戦車",hp:55,atk:14,def:8,spd:0.7,color:"#e8a33a"},
-  square:{shape:"square",name:"敵重戦車",hp:110,atk:24,def:18,spd:0.45,color:"#7d5fd3"},
-  diamond:{shape:"diamond",name:"敵自走砲",hp:60,atk:30,def:6,spd:0.35,color:"#5fa8d3",rng:30},
-};
-/* 各戦域のウェーブ：t=出現時刻(tick), type, n=体数, hpMul=強化倍率 */
-const AREA_BATTLE={
-  hokkaido:{ baseHP:1200, eBaseHP:1400, waves:[
-    {t:1,type:"circle",n:2},{t:4,type:"triangle",n:1},{t:8,type:"circle",n:2},
-    {t:12,type:"triangle",n:2},{t:18,type:"square",n:1,hpMul:1},{t:24,type:"triangle",n:2},{t:30,type:"square",n:1,boss:true,hpMul:2.2}] },
-  fuji:{ baseHP:1500, eBaseHP:1900, waves:[
-    {t:1,type:"triangle",n:2},{t:5,type:"circle",n:3},{t:9,type:"square",n:1},{t:14,type:"diamond",n:1},
-    {t:20,type:"triangle",n:3},{t:26,type:"square",n:2},{t:34,type:"square",n:1,boss:true,hpMul:2.6}] },
-  kyushu:{ baseHP:1800, eBaseHP:2600, waves:[
-    {t:1,type:"triangle",n:3},{t:6,type:"square",n:1},{t:10,type:"diamond",n:2},{t:15,type:"square",n:2},
-    {t:22,type:"triangle",n:4},{t:30,type:"square",n:2},{t:40,type:"square",n:1,boss:true,hpMul:3.2}] },
-  city:{ baseHP:2200, eBaseHP:3000, waves:[
-    {t:1,type:"square",n:2},{t:6,type:"triangle",n:3},{t:12,type:"square",n:2},{t:18,type:"diamond",n:2},
-    {t:24,type:"square",n:3},{t:32,type:"square",n:2,boss:true,hpMul:3.6}] },
-  river:{ baseHP:2000, eBaseHP:2800, waves:[
-    {t:1,type:"diamond",n:2},{t:6,type:"triangle",n:4},{t:12,type:"diamond",n:2},{t:18,type:"square",n:2},
-    {t:24,type:"triangle",n:4},{t:30,type:"diamond",n:1,boss:true,hpMul:3.0}] },
-};
-
-/* 攻撃手段（4種）と スキル */
-const ATTACKS={
-  normal:{name:"通常砲撃",icon:"💥",mul:1.0,aoe:1,cd:1,desc:"バランスの取れた砲撃"},
-  ap:{name:"徹甲弾",icon:"🎯",mul:1.6,aoe:1,defPierce:0.5,cd:3,desc:"装甲貫通・単体高威力（3ターンに1回）"},
-  he:{name:"榴弾",icon:"💣",mul:0.8,aoe:3,cd:4,desc:"範囲攻撃・周りの敵にも60%（4ターンに1回）"},
-  mg:{name:"機銃掃射",icon:"🔫",mul:0.45,aoe:2,hits:3,cd:2,desc:"3連射・装甲に弱い・反撃を受けない（2ターンに1回）"},
-};
-const SKILLS={
-  charge:{name:"全車突撃",icon:"⚡",cd:4,desc:"全車の攻撃力UP(2ターン)"},
-  repair:{name:"応急修理",icon:"🛠️",cd:5,desc:"全車のHPを35%回復"},
-  barrage:{name:"集中砲火",icon:"☄️",cd:6,desc:"全敵に大ダメージ"},
-};
-
-/* ===== 出撃：アッシュアームズ式 横スクロール戦闘 ===== */
-let sortie=null;          // {areaId} 選択中の戦域（出撃準備）
-let battle=null;          // 進行中の戦闘
-let battleTimer=null;
-const COLS=12, ROWS=4;                 // マス目（列×レーン）長方形ステージ
-const COST_MAX=300, COST_START=120, COST_REGEN=4;  // にゃんこ式 戦力ゲージ
-
-function renderSortie(){
-  if(sortie){
-    document.getElementById("sortie-area-view").classList.add("hidden");
-    document.getElementById("sortie-map-view").classList.remove("hidden");
-    if(battle){ showBattleScene(); } else { renderPreBattle(); }
-  }else{
-    document.getElementById("sortie-area-view").classList.remove("hidden");
-    document.getElementById("sortie-map-view").classList.add("hidden");
-    renderAreaList();
-  }
-}
-function renderAreaList(){
-  const l=document.getElementById("area-list"); l.innerHTML="";
-  AREAS.forEach(a=>{
-    const cleared=(state.clearedAreas||[]).includes(a.id);
-    const d=document.createElement("div"); d.className="area-card"+(cleared?" cleared":"");
-    d.innerHTML=`<div class="ac-body"><div class="ac-name">${a.name} ${cleared?'<span class="ac-clear">攻略済</span>':''}</div>
-      <div class="ac-desc">${a.desc}</div>
-      ${a.restrict&&a.restrict.note?`<div class="ac-restrict">⚑ ${a.restrict.note}</div>`:""}</div>
-      <button onclick="enterArea('${a.id}')">出撃準備 ▶</button>`;
-    l.appendChild(d);
-  });
-}
-function enterArea(id){ sortie={areaId:id}; battle=null; renderSortie(); }
-function curArea(){ return AREAS.find(a=>a.id===sortie.areaId); }
-function areaBack(){ stopBattle(); sortie=null; battle=null;
-  document.getElementById("prebattle").classList.remove("hidden");
-  document.getElementById("battlescene").classList.add("hidden");
-  renderSortie(); }
-
-function renderPreBattle(){
-  const a=curArea();
-  document.getElementById("map-title").textContent=a.name+"（出撃準備）";
-  const rn=document.getElementById("restrict-note");
-  const terr=TERRAINS[a.terrain]||TERRAINS.plain;
-  rn.innerHTML=`<b>${terr.icon} 地形：${terr.name}</b> — ${terr.note}`+(a.restrict&&a.restrict.note?`<br>⚑ ${a.restrict.note}`:"");
-  rn.style.display="block";
-  document.getElementById("prebattle").classList.remove("hidden");
-  document.getElementById("battlescene").classList.add("hidden");
-  renderSortieSquad(); renderSortieRoster();
-}
 /* 小隊枠の耐久バー（50%未満は要修理、修理中はその表示） */
 function slotHp(u){
   const hpPct=Math.round(u.hp/u.maxhp*100), repairing=u.repairEnd>Date.now();
   const tag=repairing?`<span class="slot-tag rep">🔧修理中</span>`:hpPct<50?`<span class="slot-tag">要修理</span>`:"";
   return `<span class="hpbar ${hpPct<50?'dmg':''}"><i style="width:${hpPct}%"></i></span><span class="hptxt">${u.hp}/${u.maxhp}</span>${tag}`;
 }
-function renderSortieSquad(){
-  const bar=document.getElementById("sortie-squad"); bar.innerHTML="";
-  activeSquad().forEach((uid,i)=>{ const s=document.createElement("div");
-    if(uid){ const u=findUnit(uid),c=charOf(u); s.className="slot filled";
-      s.innerHTML=`<img class="schibi" src="../assets/chibi/${c.id}.png${ASSET_V}" onerror="this.style.display='none'">
-        <b>${c.name}</b><span>戦闘力 ${unitPower(u)}</span>${slotHp(u)}`;
-      s.onclick=()=>{ toggleSquad(uid); renderSortieSquad(); renderSortieRoster(); }; }
-    else{ s.className="slot"; s.textContent=`第${i+1}枠（空）`; }
-    bar.appendChild(s); });
-}
-function renderSortieRoster(){
-  const g=document.getElementById("sortie-roster"); g.innerHTML="";
-  state.owned.forEach(u=>{ const c=charOf(u),inS=activeSquad().includes(u.uid);
-    const d=document.createElement("div"); d.className="mini-card"+rarityClass(u)+(inS?" selected":"");
-    const hpPct=Math.round(u.hp/u.maxhp*100);
-    d.innerHTML=`<img src="../assets/chibi/${c.id}.png${ASSET_V}" onerror="this.style.display='none'">
-      <span class="mc-name">${c.name}</span><span class="mc-pow">⚔${unitPower(u)} ${u.repairEnd>Date.now()?"🔧修理中":`❤${hpPct}%`}</span>`;
-    d.onclick=()=>{ toggleSquad(u.uid); renderSortieSquad(); renderSortieRoster(); };
-    g.appendChild(d);
-  });
-}
 
-/* ---- 戦闘開始 ---- */
-function startBattle(){
-  const a=curArea(); const members=squadMembers();
-  if(!members.length){ toast("出撃部隊が空です"); return; }
-  if(a.restrict){ for(const u of members){ const c=charOf(u);
-      if(a.restrict.classes&&!a.restrict.classes.includes(c.class)){ toast(`${c.name} は出撃不可（兵科制限）`); return; }
-      if(a.restrict.nations&&!a.restrict.nations.includes(c.nation)){ toast(`${c.name} は出撃不可（国籍制限）`); return; }
-      if(a.restrict.maxRarity&&c.rarity>a.restrict.maxRarity){ toast(`${c.name} は出撃不可（★制限）`); return; } } }
-  const inRepair=members.filter(u=>u.repairEnd>Date.now());
-  if(inRepair.length){ toast(`修理中の隊員は出撃できません（${inRepair.map(u=>charOf(u).name).join("・")}）`); return; }
-  if(state.res.fuel<30||state.res.ammo<30){ toast("燃料・弾薬が不足（各30）"); return; }
-  state.res.fuel-=30; state.res.ammo-=30; save(); renderRes();
-  const squad=members.slice(0,SQUAD_SIZE);
-  // 小隊全体に効く固有能力：指揮（leadership）と 数の力（count：5名以上）
-  const lead=squad.reduce((m,u)=>abilityOf(u).type==="leadership"?Math.max(m,abilityVal(u)):m,0);
-  const count=squad.length>=5?squad.reduce((m,u)=>abilityOf(u).type==="count"?Math.max(m,abilityVal(u)):m,0):0;
-  const units=squad.map((u,i)=>{ const c=charOf(u), ab=abilityOf(u), av=abilityVal(u);
-    const selfAtk=(ab.type==="selffire"||ab.type==="self_def")?av:0;
-    return {uid:u.uid,name:c.name,cid:c.id,ability:c.ability,abType:ab.type,abVal:av,_tier:dmgTier(u.hp/u.maxhp),
-      hp:u.hp,maxhp:u.maxhp,
-      atk:Math.round(effStat(u,"fire")*lvMul(u)*(1+lead+count+selfAtk)),
-      def:Math.round(effStat(u,"armor")*0.5),
-      mv:Math.max(1,Math.min(3,Math.round(effStat(u,"mobility")/35))),
-      rng:effStat(u,"range")>=RANGE_LONG?2:1, crit:critRate(u), cd:{},
-      row:i%ROWS, col:Math.floor(i/ROWS), moved:false, attacked:false, buff:0}; });
-  battle={ area:a, tiles:genTiles(a), units, enemies:[], waveIdx:0, turn:"player", turnNo:1, sel:null, fx:[],
-    memberUids:squad.map(u=>u.uid), selAttack:"normal", skillCd:{}, result:null, cutin:null,
-    log:[`<div class="log-head">⚔️ ${a.name} 交戦！ マスごとに地形が違う。地形を活かして戦え</div>`] };
-  if(lead||count) battle.log.unshift(`<div class="log-win">📡 小隊の攻撃力 +${Math.round((lead+count)*100)}%（${[lead?"指揮":"",count?"数の力":""].filter(Boolean).join("・")}）</div>`);
-  state.records.sorties++; bumpMission("sortie");
-  spawnNextWave();
-  showBattleScene();
-}
-function showBattleScene(){
-  document.getElementById("prebattle").classList.add("hidden");
-  document.getElementById("battlescene").classList.remove("hidden");
-  document.getElementById("map-title").textContent=battle.area.name+"（交戦中）";
-  const bf=document.getElementById("battlefield");
-  if(bf) bf.style.background="linear-gradient(180deg,#20251a,#14180f)";
-  renderBattleControls(); renderBattle();
-}
-function stopBattle(){ /* ターン制：タイマー無し */ }
-function dmgTier(ratio){ return ratio<=0?4:ratio<0.25?3:ratio<0.5?2:ratio<0.75?1:0; }
-/* マスごとの地形を生成（戦域のタイルセットから、列で帯状に） */
-function genTiles(a){
-  const set=AREA_TILESET[a.id]||["plain","plain","forest","plain","plain"];
-  const t=[];
-  for(let r=0;r<ROWS;r++){ const row=[];
-    for(let c=0;c<COLS;c++){
-      // 列位置で帯を作りつつ、レーンでずらして情景を散らす
-      const idx=Math.floor((c+ (r%2)) / Math.max(1,COLS/set.length)) % set.length;
-      let key=set[idx];
-      // たまにアクセント地形
-      if((c*7+r*3)%11===0) key=set[(idx+2)%set.length];
-      row.push(key);
-    }
-    t.push(row);
-  }
-  return t;
-}
-function tileAt(r,c){ return (battle.tiles[r]&&battle.tiles[r][c])||"plain"; }
-function tileDef(r,c){ return (TERRAINS[tileAt(r,c)]||TERRAINS.plain).def; }
-function blog(msg,cls){ battle.log.unshift(`<div class="${cls||'log-hit'}">${msg}</div>`); if(battle.log.length>40) battle.log.length=40; }
-
-function spawnNextWave(){
-  const bd=AREA_BATTLE[battle.area.id];
-  if(battle.waveIdx>=bd.waves.length) return false;
-  const w=bd.waves[battle.waveIdx]; battle.waveIdx++;
-  const tpl=ENEMY_TYPES[w.type], hpMul=w.hpMul||1;
-  for(let i=0;i<w.n;i++){
-    const spot=spawnSpot((i+(w.boss?1:0))%ROWS); if(!spot) break;
-    battle.enemies.push({ shape:tpl.shape,name:tpl.name,
-      hp:Math.round(tpl.hp*hpMul),maxhp:Math.round(tpl.hp*hpMul),
-      atk:Math.round(tpl.atk*(w.boss?1.3:1)),def:tpl.def,
-      mv:tpl.spd>=0.7?2:1, rng:tpl.rng?2:1,
-      row:spot.row, col:spot.col, color:tpl.color, boss:!!w.boss }); }
-  blog(`敵【${tpl.name}】${w.n}体 出現${w.boss?"（強敵！）":""}`,"log-lose");
-  return true;
-}
-
-/* 右端の列から順に、空いているマスを探す（希望の行を先に見る） */
-function spawnSpot(prefRow){
-  for(let c=COLS-1;c>=0;c--) for(let k=0;k<ROWS;k++){
-    const r=(prefRow+k)%ROWS; if(!occupied(r,c)) return {row:r,col:c}; }
-  return null;
-}
-/* ---- マス目ユーティリティ ---- */
-function unitAt(r,c){ return battle.units.find(u=>u.row===r&&u.col===c)||battle.enemies.find(e=>e.row===r&&e.col===c); }
-function occupied(r,c){ return !!unitAt(r,c); }
-function dist(a,b){ return Math.abs(a.row-b.row)+Math.abs(a.col-b.col); }
-
-/* ---- プレイヤー操作（クリック式・自動では動かない） ---- */
-function selectUnit(uid){
-  if(battle.turn!=="player"||battle.result) return;
-  battle.sel=(battle.sel===uid)?null:uid;
-  const u=battle.units.find(x=>x.uid===battle.sel);
-  if(u&&(u.cd[battle.selAttack]||0)>0) battle.selAttack="normal"; // 待ち中の攻撃なら通常砲撃に戻す
-  renderBattleControls(); renderBattle();
-}
-function clickCell(r,c){
-  if(battle.turn!=="player"||battle.result||battle.sel==null) return;
-  const u=battle.units.find(x=>x.uid===battle.sel); if(!u||u.moved) return;
-  if(occupied(r,c)) return;
-  if(Math.abs(u.row-r)+Math.abs(u.col-c)>u.mv){ toast("移動範囲外"); return; }
-  u.row=r; u.col=c; u.moved=true; renderBattle();
-}
-function clickEnemy(idx){
-  if(battle.turn!=="player"||battle.result) return;
-  const e=battle.enemies[idx]; if(!e) return;
-  const u=battle.sel!=null?battle.units.find(x=>x.uid===battle.sel):null;
-  // 選択味方が居ない / 攻撃済 / 射程外 → 攻撃せず敵情報を表示
-  if(!u||u.attacked||dist(u,e)>u.rng){
-    const wi=document.getElementById("wave-ind");
-    if(wi) wi.innerHTML=`敵：${e.name}／HP ${e.hp}/${e.maxhp}・攻${e.atk}・防${e.def}・射程${e.rng}${e.boss?'・ボス':''}`;
-    return;
-  }
-  const A=ATTACKS[battle.selAttack]||ATTACKS.normal, wait=u.cd[battle.selAttack]||0;
-  if(wait>0){ toast(`${u.name}の${A.name}は あと${wait}ターン`); return; }
-  doUnitHit(u,e); u.attacked=true; u.cd[battle.selAttack]=A.cd||1;
-  battle.enemies=battle.enemies.filter(x=>x.hp>0);
-  if(removeDeadAllies()) return;
-  if(battle.enemies.length===0){ if(!spawnNextWave()){ endBattle("win"); return; } }
-  battle.sel=null; renderBattleControls(); renderBattle();
-}
-function flankBonus(u,e){
-  // 攻撃側を含め、敵に隣接する味方が2体以上なら挟撃
-  let adj=0; battle.units.forEach(a=>{ if(dist(a,e)<=1) adj++; });
-  return adj>=2;
-}
-function calcUnitDamage(u,e){ // 会心を除いた見込み（多段は合計）
-  const A=ATTACKS[battle.selAttack]||ATTACKS.normal;
-  let atk=u.atk*A.mul*(u.buff>0?1.3:1);
-  if(u.abType==="vanguard"&&battle.turnNo===1) atk*=1+u.abVal; // 先制攻撃：最初のターンだけ
-  if(u.abType==="bossfire"&&e.boss) atk*=1+u.abVal;
-  let dmg=atk-e.def*(1-(A.defPierce||0));
-  if(flankBonus(u,e)) dmg*=1.25;            // 挟撃ボーナス +25%
-  dmg/=(tileDef(e.row,e.col)||1);           // 対象マスの地形防御
-  return Math.max(2,Math.round(dmg))*(A.hits||1);
-}
-function doUnitHit(u,e){
-  const A=ATTACKS[battle.selAttack]||ATTACKS.normal;
-  const flank=flankBonus(u,e);
-  const crit=Math.random()<(u.crit||0);
-  const dmg=Math.round(calcUnitDamage(u,e)*(crit?1.5:1));
-  e.hp-=dmg; e._hit=true; u._lunge=true;
-  pushFx(e,`${crit?"会心 ":""}-${dmg}`,"dmg");
-  blog(`${u.name}の${A.name} → ${e.name}に ${dmg} ダメージ${crit?'（会心！）':''}${flank?'（挟撃！）':''}`,"log-win");
-  if(A.aoe>1){ battle.enemies.forEach(o=>{ if(o!==e&&Math.abs(o.row-e.row)<=1&&Math.abs(o.col-e.col)<=1){ const d2=Math.round(dmg*0.6); o.hp-=d2; o._hit=true; pushFx(o,`-${d2}`,"dmg"); } }); }
-  // 反撃：敵が生存かつ隣接、攻撃種別がmg以外
-  if(e.hp>0 && dist(u,e)<=1 && battle.selAttack!=="mg"){
-    blog(`${e.name} の反撃！`,"log-lose");
-    doEnemyHit(e,u);
-  }
-  flushFxSoon();
-}
-function pushFx(t,text,cls){ if(!battle.fx)battle.fx=[]; battle.fx.push({col:t.col,row:t.row,text,cls}); }
-let fxTimer=null;
-function flushFxSoon(){ if(fxTimer)clearTimeout(fxTimer); fxTimer=setTimeout(()=>{ if(battle){ battle.fx=[]; battle.units.concat(battle.enemies).forEach(x=>{x._hit=false;x._lunge=false;}); renderBattle(); } },720); }
-function selectAttack(type){ if(!battle)return; battle.selAttack=type; renderBattleControls(); renderBattle(); }
-function useSkill(id){
-  if(!battle||battle.turn!=="player")return; const S=SKILLS[id];
-  if((battle.skillCd[id]||0)>0){ toast(`${S.name} はあと${battle.skillCd[id]}ターン`); return; }
-  battle.skillCd[id]=S.cd;
-  if(id==="charge"){ battle.units.forEach(u=>u.buff=2); blog(`⚡ 全車突撃！ 攻撃力UP（2ターン）`,"log-win"); }
-  else if(id==="repair"){ battle.units.forEach(u=>u.hp=Math.min(u.maxhp,u.hp+Math.round(u.maxhp*0.35))); blog(`🛠️ 応急修理！ HP回復`,"log-win"); }
-  else if(id==="barrage"){ battle.enemies.forEach(e=>{ e.hp-=Math.round(e.maxhp*0.5+40); e._hit=true; }); battle.enemies=battle.enemies.filter(e=>e.hp>0); blog(`☄️ 集中砲火！`,"log-win");
-    if(battle.enemies.length===0&&!spawnNextWave()){ endBattle("win"); return; } }
-  toast(`${S.icon} ${S.name}`); renderBattleControls(); renderBattle();
-}
-/* 耐久0になった味方を取り除く。全滅なら敗北にして true を返す */
-function removeDeadAllies(){
-  battle.units=battle.units.filter(u=>{ if(u.hp<=0){ u.hp=0; blog(`${u.name} 撃破…`,"log-lose"); return false; } return true; });
-  if(battle.units.length===0){ endBattle("lose"); return true; }
-  return false;
-}
-function endPlayerTurn(){
-  if(!battle||battle.turn!=="player"||battle.result) return;
-  battle.turn="enemy"; battle.sel=null; renderBattle();
-  setTimeout(enemyTurn,350);
-}
-function enemyTurn(){
-  if(!battle||battle.result) return;
-  battle.enemies.forEach(e=>{
-    if(battle.result) return;
-    let tgt=null,bd=99; battle.units.forEach(u=>{ const d=dist(e,u); if(d<bd||(d===bd&&tgt&&u.hp<tgt.hp)){bd=d;tgt=u;} });
-    if(!tgt) return;
-    let steps=e.mv;
-    while(steps>0 && dist(e,tgt)>e.rng){
-      const dr=Math.sign(tgt.row-e.row), dc=Math.sign(tgt.col-e.col);
-      let nr=e.row,nc=e.col;
-      if(dc!==0 && !occupied(e.row,e.col+dc)) nc=e.col+dc;
-      else if(dr!==0 && !occupied(e.row+dr,e.col)) nr=e.row+dr;
-      else break;
-      e.row=nr; e.col=nc; steps--;
-    }
-    if(dist(e,tgt)<=e.rng){ doEnemyHit(e,tgt); removeDeadAllies(); } // 倒した味方をもう狙わない
-  });
-  if(battle.result) return;
-  for(const k in battle.skillCd) if(battle.skillCd[k]>0) battle.skillCd[k]--;
-  battle.units.forEach(u=>{ u.moved=false; u.attacked=false; if(u.buff>0)u.buff--;
-    for(const k in u.cd) if(u.cd[k]>0) u.cd[k]--; });
-  battle.turn="player"; battle.turnNo++;
-  renderBattleControls(); renderBattle(); flushFxSoon();
-  if(battle.cutin){ showCutin(battle.cutin); battle.cutin=null; }
-}
-/* ===== 艦これ風 被弾カットイン ===== */
-function showCutin(info){
-  const el=document.getElementById("dmg-cutin"); if(!el) return;
-  const ratio=info.ratio, label=info.tier>=3?"大破！":"中破！";
-  const bgColor=info.tier>=3?"#7a1f1f":"#1f3a7a"; // 大破=赤系/中破=青系
-  el.innerHTML=`<div class="ci-bg" style="background:radial-gradient(circle at 30% 40%, ${bgColor}, #05070c)"></div>
-    <div class="ci-art"><img src="${dmgSprite(info.cid,ratio)}" alt=""></div>
-    <div class="ci-label">${label}</div>
-    <div class="ci-name">${info.name}</div>`;
-  el.classList.remove("hidden"); el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
-  setTimeout(()=>{ el.classList.remove("show"); el.classList.add("hidden"); }, 1700);
-}
-function doEnemyHit(e,u){
-  let dmg=e.atk - u.def*0.6;
-  if(u.abType==="armor"||u.abType==="self_def") dmg*=1-u.abVal;
-  if(u.abType==="laststand"&&u.hp<u.maxhp*0.3) dmg*=1-u.abVal;
-  if(u.abType==="vanguard") dmg*=1.1; // 先陣は被ダメージ+10%
-  dmg*=tileDef(u.row,u.col); // マス地形の防御
-  dmg=Math.max(1,Math.round(dmg)); u.hp-=dmg; u._hit=true;
-  pushFx(u,`-${dmg}`,"dmg-ally");
-  blog(`${e.name} → ${u.name}に ${dmg} ダメージ`,"log-lose");
-  // 被弾で破損段階が悪化したらカットイン予約（中破以上）
-  const nt=dmgTier(u.hp/u.maxhp);
-  if(nt>(u._tier||0)){ u._tier=nt; if(nt>=2) battle.cutin={cid:u.cid,name:u.name,ratio:Math.max(0,u.hp/u.maxhp),tier:nt}; }
-}
-
-/* ---- 勝敗 ---- */
-function endBattle(result){
-  battle.result=result; const a=battle.area;
-  let html;
-  // 戦果サマリー集約（既存処理の値を流用するだけ、新たに資源は足さない）
-  const summary={res:{},drops:[],equips:[],exp:0,firstClear:false};
-  const fought=battle.memberUids.map(findUnit).filter(Boolean);
-  // 出撃した全員（撃破された者も）の固有能力。補給・経験・強運は部隊単位で一番強い者の値
-  const all=fought.map(u=>({abType:abilityOf(u).type,abVal:abilityVal(u)}));
-  syncBattleHp(); // 撃破された隊員は耐久1、生き残りは戦闘後の耐久（勝っても負けても）
-  if(result==="win"){
-    html=`<div class="log-head">🏆 勝利！ 敵を殲滅した</div>`;
-    const foe=AREA_BATTLE[a.id].eBaseHP*0.2, resB=1+teamAbility(all,"resource");
-    const g={fuel:Math.round(foe*0.18*resB),ammo:Math.round(foe*0.2*resB),steel:Math.round(foe*0.15*resB),parts:Math.round(foe*0.12*resB),gold:Math.round(foe*0.08*resB)};
-    for(const k in g) state.res[k]=(state.res[k]||0)+g[k];
-    summary.res=Object.assign({},g);
-    html+=`<div class="log-win">獲得 ⛽${g.fuel} 💥${g.ammo} 🔩${g.steel} ⚙️${g.parts} 💴${g.gold}${resB>1?`（補給上手 +${Math.round((resB-1)*100)}%）`:""}</div>`;
-    const ex=Math.round(200*(1+teamAbility(all,"exp")));
-    fought.forEach(u=>gainExp(u,ex)); gainCmdExp(120); summary.exp=ex;
-    state.records.wins++; bumpMission("win"); bumpMission("clear");
-    if(!state.clearedAreas) state.clearedAreas=[];
-    const first=!state.clearedAreas.includes(a.id);
-    if(first){ state.clearedAreas.push(a.id); state.res.gold+=150; addItem("remodel",1);
-      summary.firstClear=true; summary.res.gold=(summary.res.gold||0)+150;
-      html+=`<div class="log-win">🎖 戦域【${a.name}】初攻略！ 💴150 ＋ 🔧改修資材</div>`; }
-    if(Math.random()<Math.min(1,0.9+teamAbility(all,"luck"))){ const u=rollUnit(0.6); state.owned.push(u); seeDex(u.charId); state.records.drops++;
-      summary.drops.push(`${charOf(u).name}（★${charOf(u).rarity}）`);
-      html+=`<div class="log-win">🎁 ${charOf(u).name}（★${charOf(u).rarity}）がドロップ！</div>`; }
-    // 装備ドロップ（ボスは高確率＆高レア）
-    const isBossWin = battle.waveIdx >= (AREA_BATTLE[a.id].waves.length); // 全wave消化=ボス撃破済み
-    if(Math.random() < (isBossWin?0.8:0.45)+teamAbility(all,"luck")){
-      const eid = rollEquip(isBossWin?0.6:0.3);
-      addEquip(eid,1);
-      summary.equips.push(`${EQUIPMENTS[eid].name}（★${EQUIPMENTS[eid].rarity}）`);
-      html += `<div class="log-win">⚙️ 装備「${EQUIPMENTS[eid].name}」（★${EQUIPMENTS[eid].rarity}）を入手！</div>`;
-    }
-    toast(`🏆 ${a.name} 制圧！`);
-  }else{
-    html=`<div class="log-head">💥 敗北… 部隊が全滅した</div>`;
-    fought.forEach(u=>{ u.hp=1; gainExp(u,30); }); gainCmdExp(20); state.records.losses++;
-    summary.exp=30;
-    toast("💥 敗北…");
-  }
-  battle.log.unshift(html);
-  save(); renderRes(); renderCmd();
-  document.getElementById("battle-log").innerHTML=battle.log.join("");
-  const ov=document.getElementById("battle-result");
-  if(ov){ ov.className="br-"+result; ov.innerHTML=battleResultCard(result,a,summary); ov.classList.remove("hidden"); }
-}
-const RES_ICON={fuel:"⛽燃料",ammo:"💥弾薬",steel:"🔩鉄鋼",parts:"⚙️部品",gold:"💴資金"};
-function battleResultCard(result,a,s){
-  let rows="";
-  if(result==="win"){
-    const resLines=Object.keys(RES_ICON).filter(k=>s.res[k]).map(k=>`<li>${RES_ICON[k]} <b>+${s.res[k]}</b></li>`).join("");
-    if(resLines) rows+=resLines;
-    if(s.exp) rows+=`<li>📈 経験値 <b>+${s.exp}</b></li>`;
-    s.drops.forEach(d=>rows+=`<li class="br-special">🎁 ${d} がドロップ！</li>`);
-    s.equips.forEach(e=>rows+=`<li class="br-special">⚙️ 装備「${e}」を入手</li>`);
-    if(s.firstClear) rows+=`<li class="br-special">🎖 戦域初攻略ボーナス！</li>`;
-    return `<div class="br-card"><h3>🏆 勝　利</h3><div class="br-sub">${a.name} を制圧</div>
-      <ul class="br-summary">${rows}</ul>
-      <button onclick="afterBattle()">確認</button></div>`;
-  }else{
-    rows+=`<li>📈 経験値 <b>+${s.exp}</b></li>`;
-    return `<div class="br-card"><h3>💥 敗　北</h3>
-      <div class="br-sub">部隊が損傷しました。工廠で修理を。</div>
-      <ul class="br-summary">${rows}</ul>
-      <button onclick="afterBattle()">確認</button></div>`;
-  }
-}
-/* 戦闘中のダメージを隊員本体へ反映（戦死=hp1）。撤退でも回復させない */
-function syncBattleHp(){
-  if(!battle) return;
-  battle.memberUids.map(findUnit).filter(Boolean).forEach(u=>{ const pu=battle.units.find(x=>x.uid===u.uid);
-    u.hp = pu ? Math.max(1,Math.min(u.maxhp,Math.round(pu.hp))) : 1; });
-  save();
-}
-function afterBattle(){ document.getElementById("battle-result").classList.add("hidden"); battle=null; renderPreBattle(); }
-function gainExp(u,a){ u.exp+=a; while(u.exp>=u.level*100){ u.exp-=u.level*100; u.level++; } }
-
-/* ---- 描画 ---- */
-function renderBattleControls(){
-  const ab=document.getElementById("bc-attacks");
-  const su=battle.sel!=null?battle.units.find(u=>u.uid===battle.sel):null; // 待ちは選んだ隊員ごと
-  ab.innerHTML=Object.entries(ATTACKS).map(([id,A])=>{ const w=su?(su.cd[id]||0):0;
-    return `<button class="atk-btn${battle.selAttack===id?' sel':''}" ${w>0?"disabled":""} onclick="selectAttack('${id}')" title="${A.desc}">${A.icon}${A.name}${w>0?` (${w})`:""}</button>`; }).join("");
-  const sb=document.getElementById("bc-skills");
-  sb.innerHTML=Object.entries(SKILLS).map(([id,S])=>{ const cd=battle.skillCd[id]||0;
-    return `<button class="skill-btn" ${cd>0?"disabled":""} onclick="useSkill('${id}')" title="${S.desc}">${S.icon}${S.name}${cd>0?` (${cd})`:""}</button>`; }).join("");
-}
-const CW=()=>88/COLS, RH=()=>80/ROWS;        // 列幅・行ピッチ(%)
-const HEXH=()=>RH()*1.34;                      // 六角の実高(行ピッチより大きく重ねて連結)
-function tileLeft(col,row){ return 5+(col+0.5)*CW()+((row%2)?CW()/2:0); }
-function tileTop(row){ return 8+row*RH()+HEXH()/2; }
-function renderBattle(){
-  if(!battle) return;
-  const sel=battle.sel!=null?battle.units.find(u=>u.uid===battle.sel):null;
-  const ti=document.getElementById("turn-ind"); if(ti) ti.textContent=(battle.turn==="player"?"🟢 自軍ターン":"🔴 敵ターン（待機）")+` ${battle.turnNo}`;
-  const wi=document.getElementById("wave-ind"); if(wi){ const bd=AREA_BATTLE[battle.area.id];
-    wi.innerHTML= sel
-      ? `<b style="color:var(--gold2)">選択: ${sel.name}</b>（射程${sel.rng}・会心${Math.round(sel.crit*100)}%）　${sel.moved?'移動済':'青マスで移動'}／${sel.attacked?'攻撃済':'⚔敵で攻撃'}`
-      : `WAVE ${Math.min(battle.waveIdx,bd.waves.length)}/${bd.waves.length}・残敵${battle.enemies.length}・部隊${battle.units.length}　味方をタップ`; }
-  // 六角マス（千鳥配置）
-  const g=document.getElementById("grid-bg"); let gh="";
-  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
-    let cls="hex";
-    if(sel&&!sel.moved&&!occupied(r,c)&&(Math.abs(sel.row-r)+Math.abs(sel.col-c))<=sel.mv) cls+=" reach";
-    const tk=tileAt(r,c), tt=TERRAINS[tk]||TERRAINS.plain;
-    gh+=`<div class="${cls}" style="left:${5+c*CW()+((r%2)?CW()/2:0)}%;top:${8+r*RH()}%;width:${CW()}%;height:${HEXH()}%;--tc:${tt.tile}" onclick="clickCell(${r},${c})"><span class="hex-ic">${tt.icon}</span></div>`;
-  }
-  g.innerHTML=gh;
-  // ユニット
-  const fu=document.getElementById("field-units"); let h="";
-  battle.units.forEach(u=>{ const hpP=Math.round(u.hp/u.maxhp*100), s=battle.sel===u.uid;
-    h+=`<div class="fu ally${u.buff>0?' buff':''}${s?' sel':''}${u._hit?' hit':''}${u._lunge?' lunge':''}${(u.moved&&u.attacked)?' done':''}" style="left:${tileLeft(u.col,u.row)}%;top:${tileTop(u.row)}%" onclick="event.stopPropagation();selectUnit(${u.uid})">
-      <span class="fu-hp"><i style="width:${hpP}%"></i></span>
-      <img src="../assets/chibi/${u.cid}.png${ASSET_V}" onerror="this.style.display='none'"></div>`; });
-  battle.enemies.forEach((e,idx)=>{ const hpP=Math.round(e.hp/e.maxhp*100), targetable=sel&&!sel.attacked&&dist(sel,e)<=sel.rng;
-    h+=`<div class="fu enemy ${e.shape}${e.boss?' boss':''}${targetable?' target':''}${e._hit?' hit':''}" style="left:${tileLeft(e.col,e.row)}%;top:${tileTop(e.row)}%" onclick="event.stopPropagation();clickEnemy(${idx})">
-      <span class="fu-hp enemy"><i style="width:${hpP}%"></i></span>
-      <span class="fu-hpnum">${e.hp}</span>
-      <span class="shape" style="--ec:${e.color}"></span></div>`; });
-  // ダメージ予測（選択中・未攻撃の味方の射程内）
-  if(sel&&!sel.attacked){ battle.enemies.forEach(e=>{ if(dist(sel,e)<=sel.rng){
-    const dp=calcUnitDamage(sel,e); const kill=dp>=e.hp;
-    h+=`<div class="dmg-preview" style="left:${tileLeft(e.col,e.row)}%;top:${tileTop(e.row)}%">${kill?'☠':''}≈${dp}</div>`;
-  } }); }
-  // ダメージ演出
-  (battle.fx||[]).forEach(f=>{ h+=`<div class="dmgfx ${f.cls}" style="left:${tileLeft(f.col,f.row)}%;top:${tileTop(f.row)}%">${f.text}</div>`; });
-  fu.innerHTML=h;
-  document.getElementById("battle-log").innerHTML=battle.log.join("");
-}
 /* ===== 詳細モーダル ===== */
 let modalUid=null;
 const DMG_STATES=[{sfx:"",label:"健在"},{sfx:"_d1",label:"小破"},{sfx:"_d2",label:"中破"},{sfx:"_d3",label:"大破"},{sfx:"_d4",label:"撃破"}];
@@ -1355,12 +831,12 @@ function equipTo(uid,slot,id){
   const u=findUnit(uid); if(!u) return;
   equipSlots(u)[slot]=id; save();
   document.getElementById("equip-picker").classList.add("hidden");
-  renderEquipSlots(); if(modalUid===uid) openDetail(uid); renderRoster();
+  renderEquipSlots(); if(modalUid===uid) openDetail(uid); renderSquad();
   toast(`🔧 ${EQUIPMENTS[id].name} を装備`);
 }
 function unequip(uid,slot){
   const u=findUnit(uid); if(!u) return;
-  equipSlots(u)[slot]=null; save(); renderEquipSlots(); if(modalUid===uid) openDetail(uid); renderRoster();
+  equipSlots(u)[slot]=null; save(); renderEquipSlots(); if(modalUid===uid) openDetail(uid); renderSquad();
 }
 function refreshToggleBtn(){ const b=document.getElementById("modal-toggle");
   if(modalUid<0){ b.style.display="none"; return; } b.style.display="";
@@ -1458,44 +934,34 @@ function renderDex(){
 }
 
 /* ===== 共通描画 ===== */
-function renderAll(){ document.body.classList.toggle("on-port", isActive("base")); applyUITheme(); renderCmd(); renderRes(); renderPort(); renderSquad(); renderRoster(); applyTheme(); }
+function renderAll(){ applyUITheme(); renderCmd(); renderRes(); renderTab(curTab); renderBaseStats(); applyTheme(); }
 function renderCmd(){
   document.getElementById("cmd-name").textContent=state.player.name;
-  document.getElementById("cmd-lv").textContent="Lv."+state.player.level;
+  document.getElementById("cmd-lv").textContent=state.player.level;
+  document.getElementById("hq-rank").textContent=rankOf(state.player.level);
   const pct=Math.round(state.player.exp/cmdNeed()*100);
   document.getElementById("cmd-expbar").style.width=pct+"%";
   document.getElementById("cmd-exptxt").textContent=`${state.player.exp}/${cmdNeed()}`;
 }
 function renderRes(){
-  document.getElementById("r-fuel").textContent=state.res.fuel;
-  document.getElementById("r-ammo").textContent=state.res.ammo;
-  document.getElementById("r-steel").textContent=state.res.steel;
-  document.getElementById("r-parts").textContent=state.res.parts;
-  document.getElementById("r-gold").textContent=state.res.gold;
+  for(const k of ["fuel","ammo","steel","parts","gold"]) document.getElementById("r-"+k).textContent=state.res[k];
+  document.getElementById("hq-owned").textContent=state.owned.length;
+  document.getElementById("hq-equips").textContent=Object.values(state.equips||{}).reduce((s,n)=>s+n,0);
+  for(const k of ["repair","build","remodel"]) document.getElementById("hq-i-"+k).textContent=state.items[k]||0;
 }
 /* 司令官の階級（艦これの提督の階級にあたる）。5レベルごとに上がる */
 const RANKS=["三等陸尉","二等陸尉","一等陸尉","三等陸佐","二等陸佐","一等陸佐","陸将補","陸将"];
 function rankOf(lv){ return RANKS[Math.min(RANKS.length-1,Math.floor((lv-1)/5))]; }
 function claimableMissions(){ return MISSIONS.filter(m=>{ const p=state.missions.prog[m.id]; return p&&p.prog>=m.need&&!p.claimed; }).length; }
 function renderBaseStats(){
-  // 司令官の名前・階級・レベル / 経験値（母港の上の帯）
-  const kn=document.getElementById("kh-name"); if(kn) kn.textContent=state.player.name;
-  const kr=document.getElementById("kh-rank"); if(kr) kr.textContent=rankOf(state.player.level);
   const kb=document.getElementById("kh-badge"); if(kb){ const n=claimableMissions(); kb.textContent=n; kb.classList.toggle("hidden",!n); }
-  const lv=document.getElementById("pc-lv");
-  if(lv){
-    lv.textContent=state.player.level;
-    const pct=Math.max(0,Math.min(100,Math.round(state.player.exp/cmdNeed()*100)));
-    const bar=document.getElementById("pc-expbar"); if(bar) bar.style.width=pct+"%";
-    const txt=document.getElementById("pc-exptxt"); if(txt) txt.textContent=`${state.player.exp} / ${cmdNeed()}`;
-  }
+  renderRes();
   const e=document.getElementById("pc-stats"); if(!e) return;
   const fill=activeSquad().filter(Boolean).length;
   e.innerHTML=
-    `<li><span class="pl">保有車輌</span><b>${state.owned.length}</b></li>`+
-    `<li><span class="pl">第${state.activeSquad+1}小隊</span><b>${fill}/${SQUAD_SIZE}</b></li>`+
-    `<li><span class="pl">総戦闘力</span><b>${squadPower()}</b></li>`+
-    `<li><span class="pl">図鑑</span><b>${state.dex.length}/${DB.characters.length}</b></li>`;
+    `<li><span>${squadName(state.activeSquad)}</span><b>${fill}/${SQUAD_SIZE}</b></li>`+
+    `<li><span>総戦闘力</span><b>${squadPower()}</b></li>`+
+    `<li><span>図鑑</span><b>${state.dex.length}/${DB.characters.length}</b></li>`;
 }
 function rarityClass(u){ const r=charOf(u).rarity; return r>=5?" r5":r>=4?" r4":r>=3?" r3":""; }
 function cardInner(u){ const c=charOf(u),chibi=`../assets/chibi/${c.id}.png${ASSET_V}`;
@@ -1515,47 +981,72 @@ function cardInner(u){ const c=charOf(u),chibi=`../assets/chibi/${c.id}.png${ASS
     <div class="stat">火${effStat(u,"fire")} 装${effStat(u,"armor")} 機${effStat(u,"mobility")}<br>戦闘力 <b>${unitPower(u)}</b> ・ 耐久${u.hp}/${u.maxhp}</div>
     ${hpbar}`;
 }
-let dragUid=null;
-function renderRoster(){
-  const g=document.getElementById("roster"); if(!g) return; g.innerHTML="";
-  state.owned.forEach(u=>{ const d=document.createElement("div");
-    d.className="card"+rarityClass(u)+(inAnySquad(u.uid)?" selected":"");
-    d.innerHTML=cardInner(u);
-    d.draggable=true;
-    d.addEventListener("dragstart",e=>{ dragUid=u.uid; d.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; });
-    d.addEventListener("dragend",()=>{ dragUid=null; d.classList.remove("dragging"); });
-    d.onclick=()=>openDetail(u.uid);
-    g.appendChild(d); });
-  renderBaseStats();
-}
+/* ===== 編成画面（艦これ式：2列×3段の枠・詳細と変更・隊員の一覧） ===== */
+function squadName(i){ return (state.squadNames&&state.squadNames[i])||`第${i+1}小隊`; }
+const CLASS_SHORT={"MBT":"主力","重戦車":"重戦","中戦車":"中戦","軽戦車":"軽戦","歩兵戦車":"歩戦","機動戦闘車":"機動","装甲戦闘車":"装戦","自走砲":"自走","偵察":"偵察"};
 function renderSquad(){
-  // 小隊切替タブ
   const tabs=document.getElementById("squad-tabs");
   if(tabs){ tabs.innerHTML="";
     for(let i=0;i<SQUAD_COUNT;i++){ const b=document.createElement("button");
-      const cnt=state.squads[i].filter(Boolean).length;
-      b.className="sq-tab"+(state.activeSquad===i?" active":""); b.textContent=`第${i+1}小隊 (${cnt}/${SQUAD_SIZE})`;
-      b.onclick=()=>setActiveSquad(i); tabs.appendChild(b); }
-  }
+      b.className="num-tab"+(state.activeSquad===i?" active":""); b.textContent=i+1; b.title=squadName(i);
+      b.onclick=()=>setActiveSquad(i); tabs.appendChild(b); } }
+  const ni=document.getElementById("sq-name-input"); if(ni) ni.value=squadName(state.activeSquad);
+  const pw=document.getElementById("sq-power"); if(pw) pw.textContent=squadPower();
   const bar=document.getElementById("squad-bar"); if(!bar) return; bar.innerHTML="";
-  activeSquad().forEach((uid,i)=>{ const s=document.createElement("div"); s.dataset.slot=i;
-    if(uid){ const u=findUnit(uid),c=charOf(u); s.className="slot filled";
-      s.innerHTML=`<img class="schibi" src="../assets/chibi/${c.id}.png${ASSET_V}" onerror="this.style.display='none'"><b>${c.name}</b><span>Lv.${u.level}・戦闘力 ${unitPower(u)}</span>${slotHp(u)}<span class="slot-x">✕</span>`;
-      s.querySelector(".slot-x").onclick=(e)=>{ e.stopPropagation(); toggleSquad(uid); };
-      s.onclick=()=>openDetail(uid);
-      s.draggable=true;
-      s.addEventListener("dragstart",e=>{ dragUid=uid; s.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; });
-      s.addEventListener("dragend",()=>{ dragUid=null; s.classList.remove("dragging"); });
-    }
-    else{ s.className="slot"; s.textContent=`第${i+1}枠（ドラッグで配置）`; }
-    // ドロップ受け入れ
-    s.addEventListener("dragover",e=>{ e.preventDefault(); s.classList.add("dragover"); });
-    s.addEventListener("dragleave",()=>s.classList.remove("dragover"));
-    s.addEventListener("drop",e=>{ e.preventDefault(); s.classList.remove("dragover");
-      if(dragUid!=null) placeInSlot(dragUid,i); });
-    bar.appendChild(s); });
+  activeSquad().forEach((uid,i)=>{
+    const d=document.createElement("div");
+    const u=uid&&findUnit(uid);
+    if(!u){ d.className="sp empty";
+      d.innerHTML=`<div class="sp-shutter"></div><span class="sp-no">${i+1}</span>
+        ${i===0||activeSquad()[i-1]?`<button class="sp-btn change" onclick="openShipList(${i})">⇄ 変更</button>`:""}`;
+      bar.appendChild(d); return; }
+    const c=charOf(u), r=u.hp/u.maxhp, pct=Math.round(r*100), repairing=u.repairEnd>Date.now();
+    const expPct=Math.round(u.exp/(u.level*100)*100);
+    d.className="sp"+rarityClass(u)+(repairing?" repairing":"");
+    d.innerHTML=`<span class="sp-no${i===0?" flag":""}">${i===0?"旗":i+1}</span>
+      <div class="sp-left">
+        <div class="sp-name">${c.name}${u.remodel?`<small>${remodelFormName(u.remodel)}</small>`:""}</div>
+        <div class="sp-lv">Lv<b>${u.level}</b></div>
+        <div class="sp-stars">${"★".repeat(c.rarity)}</div>
+        <div class="sp-hp${r<0.25?" bad":r<0.5?" warn":""}"><i style="width:${pct}%"></i></div>
+        <div class="sp-hpt">${repairing?"🔧整備中 ":r<0.5?"要整備 ":""}${u.hp}/${u.maxhp}</div>
+        <div class="sp-stats">
+          <span><i>🔥</i>火力<b>${effStat(u,"fire")}</b></span><span><i>🛡️</i>装甲<b>${effStat(u,"armor")}</b></span>
+          <span><i>⚙️</i>機動<b>${effStat(u,"mobility")}</b></span><span><i>🔭</i>射程<b>${effStat(u,"range")}</b></span>
+        </div>
+      </div>
+      <div class="sp-banner" style="background-image:url('${dmgSprite(c.id,r)}')"><span class="sp-cls">${CLASS_SHORT[c.class]||c.class}</span></div>
+      <div class="sp-exp"><i style="width:${expPct}%"></i></div>
+      <div class="sp-btns"><button class="sp-btn detail" onclick="openDetail(${u.uid})">🔍 詳細</button><button class="sp-btn change" onclick="openShipList(${i})">⇄ 変更</button></div>`;
+    bar.appendChild(d);
+  });
   renderBaseStats();
 }
+function clearEscorts(){ const sq=activeSquad(); for(let i=1;i<sq.length;i++) sq[i]=null; save(); renderSquad(); toast("随伴を解除しました（隊長だけ残します）"); }
+/* 空き枠を詰める（艦これと同じく、前から順に並ぶ） */
+function compactSquad(sq){ const a=sq.filter(Boolean); for(let i=0;i<sq.length;i++) sq[i]=a[i]||null; }
+let slTarget=0, slSort="lv";
+function openShipList(slot){
+  slTarget=slot;
+  document.getElementById("sl-title").textContent=`隊員選択（${squadName(state.activeSquad)}・${slot===0?"隊長":"第"+(slot+1)+"枠"}）`;
+  document.getElementById("sl-sort").innerHTML=[["lv","Lv順"],["class","兵科順"],["power","戦闘力順"],["new","新着順"]]
+    .map(([k,l])=>`<button class="${slSort===k?"sel":""}" onclick="slSort='${k}';openShipList(${slot})">${l}</button>`).join("");
+  const cur=activeSquad()[slot];
+  document.getElementById("sl-remove").innerHTML=cur&&slot>0?`<button class="danger" onclick="placeInSlot(null,${slot})">✕ この枠を外す</button>`:"";
+  const rows=[...state.owned];
+  const cls=Object.keys(CLASS_ICON);
+  rows.sort((a,b)=> slSort==="lv"?b.level-a.level||b.exp-a.exp : slSort==="power"?unitPower(b)-unitPower(a) : slSort==="new"?b.uid-a.uid : cls.indexOf(charOf(a).class)-cls.indexOf(charOf(b).class));
+  document.getElementById("sl-table").innerHTML=`<table class="sl-tab"><thead><tr><th></th><th>兵科</th><th>名前</th><th>Lv</th><th>耐久</th><th>火力</th><th>装甲</th><th>機動</th><th>射程</th><th>状態</th></tr></thead><tbody>`+
+    rows.map(u=>{ const c=charOf(u), where=state.squads.findIndex(sq=>sq.includes(u.uid)), rep=u.repairEnd>Date.now();
+      return `<tr class="${u.uid===cur?"cur":""}${rep?" rep":""}" onclick="placeInSlot(${u.uid},${slot})">
+        <td><img src="../assets/chibi/${c.id}.png${ASSET_V}" alt=""></td><td>${CLASS_SHORT[c.class]||c.class}</td>
+        <td class="nm">${c.name}<small>${"★".repeat(c.rarity)}</small></td><td>${u.level}</td>
+        <td><span class="mini-hp${u.hp/u.maxhp<0.5?" warn":""}"><i style="width:${u.hp/u.maxhp*100}%"></i></span>${u.hp}/${u.maxhp}</td>
+        <td>${effStat(u,"fire")}</td><td>${effStat(u,"armor")}</td><td>${effStat(u,"mobility")}</td><td>${effStat(u,"range")}</td>
+        <td>${rep?"🔧整備中":where>=0?`<span class="in-sq">${squadName(where)}</span>`:""}</td></tr>`; }).join("")+`</tbody></table>`;
+  document.getElementById("ship-list").classList.remove("hidden");
+}
+function closeShipList(){ document.getElementById("ship-list").classList.add("hidden"); }
 function renderArsenal(sub){
   if(sub==="commission") renderCommissions();
   else if(sub==="remodel") renderRemodel();
